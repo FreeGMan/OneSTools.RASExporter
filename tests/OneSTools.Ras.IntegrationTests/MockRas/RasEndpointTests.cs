@@ -75,4 +75,31 @@ public sealed class RasEndpointTests : IAsyncLifetime
 
         await endpoint.CloseAsync(cts.Token);
     }
+
+    [Fact]
+    public async Task Can_Open_Endpoint_Send_Uncompressed_Message_And_Close()
+    {
+        await using var connection = new RasConnection(new IPEndPoint(IPAddress.Loopback, _port), NullLogger<RasConnection>.Instance);
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await connection.ConnectAsync(null, cts.Token);
+
+        var serviceId = new ServiceId("com.1c.v8.ibis.admin.IAgentAdminConnection", "1.0");
+        var parameters = new Dictionary<string, object?>
+        {
+            { "endpoint.encoding", "none" }
+        };
+
+        await using var endpoint = await connection.OpenEndpointAsync(serviceId, parameters, cancellationToken: cts.Token);
+
+        Assert.True(endpoint.EndpointId > 0);
+        Assert.Equal(serviceId, endpoint.ServiceId);
+        Assert.False(endpoint.UseCompression);
+
+        byte[] request = Encoding.UTF8.GetBytes("UncompressedRequestPayload67890");
+        byte[] response = await endpoint.SendMessageAsync(request, cts.Token);
+
+        Assert.Equal(request, response);
+
+        await endpoint.CloseAsync(cts.Token);
+    }
 }
