@@ -184,6 +184,16 @@ public ref struct RasReader
         return DateTimeOffset.FromUnixTimeMilliseconds(unixMs).UtcDateTime;
     }
 
+    public int Consumed => (int)_reader.Consumed;
+    public int Remaining => (int)_reader.Remaining;
+
+    public byte[] ReadRemainingBytes()
+    {
+        int remaining = Remaining;
+        if (remaining == 0) return Array.Empty<byte>();
+        return ReadBytes(remaining);
+    }
+
     public char ReadChar()
     {
         return (char)ReadShort();
