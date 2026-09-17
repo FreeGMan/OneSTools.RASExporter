@@ -68,7 +68,7 @@ public sealed class RasEndpointTests : IAsyncLifetime
         Assert.Equal(serviceId, endpoint.ServiceId);
         Assert.True(endpoint.UseCompression);
 
-        byte[] request = Encoding.UTF8.GetBytes("GetClustersRequestPayload12345");
+        byte[] request = Encoding.UTF8.GetBytes("hello compressed echo payload 12345");
         byte[] response = await endpoint.SendMessageAsync(request, cts.Token);
 
         Assert.Equal(request, response);
@@ -95,7 +95,7 @@ public sealed class RasEndpointTests : IAsyncLifetime
         Assert.Equal(serviceId, endpoint.ServiceId);
         Assert.False(endpoint.UseCompression);
 
-        byte[] request = Encoding.UTF8.GetBytes("UncompressedRequestPayload67890");
+        byte[] request = Encoding.UTF8.GetBytes("hello uncompressed echo payload 67890");
         byte[] response = await endpoint.SendMessageAsync(request, cts.Token);
 
         Assert.Equal(request, response);

@@ -2,6 +2,8 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
+using OneSTools.Ras.Client.Messages;
+using OneSTools.Ras.Client.Models;
 using OneSTools.Ras.Client.Protocol;
 using OneSTools.Ras.Client.Transport;
 using OneSTools.Ras.Client.Wire;
@@ -158,20 +160,11 @@ public sealed class ClientSession
 
         _logger.LogInformation("EndpointMessage для ID={Id}, format={Format}, bodyLen={Len}", endpointId, format, body.Length);
 
-        // Echo back with MESSAGE kind (0x01)
-        byte[] responseBody;
-        if (body.Length > 0 && body[0] == 0x01)
-        {
-            responseBody = body;
-        }
-        else
-        {
-            responseBody = new byte[] { 0x00 }; // VOID
-        }
+        byte[] responseBody = GenerateApiResponse(body);
 
         bool useCompression = _endpointCompression.TryGetValue(endpointId.Value, out var comp) && comp;
         short responseFormat = 0;
-        if (useCompression)
+        if (useCompression && responseBody.Length > 0 && responseBody[0] != 0x00)
         {
             responseBody = RasCompression.Deflate(responseBody);
             responseFormat = 1;
@@ -179,6 +172,154 @@ public sealed class ClientSession
 
         byte[] responseFrame = FormatEndpointMessageResponse(endpointId.Value, responseFormat, responseBody);
         await WriteFrameAsync(stream, (byte)SwpMessageType.EndpointMessage, responseFrame, cancellationToken);
+    }
+
+    private static byte[] GenerateApiResponse(byte[] body)
+    {
+        if (body.Length == 0) return new byte[] { 0x00 };
+
+        byte kind = body[0];
+        if (kind != 0x01 || body.Length < 2)
+        {
+            return new byte[] { 0x00 }; // VOID
+        }
+
+        var reqType = (MessageType)body[1];
+
+        var respBuffer = new ArrayBufferWriter<byte>();
+        var respWriter = new RasWriter(respBuffer);
+        respWriter.WriteByte(0x01); // EndpointDataType.MESSAGE
+
+        switch (reqType)
+        {
+            case MessageType.GetClustersRequest:
+                respWriter.WriteByte((byte)MessageType.GetClustersResponse);
+                new GetClustersResponse
+                {
+                    Clusters = new[]
+                    {
+                        new ClusterInfo
+                        {
+                            Uuid = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                            Name = "Mock-Cluster-01",
+                            Host = "mock-server",
+                            Port = 1541
+                        }
+                    }
+                }.Serialize(ref respWriter);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetSessionsRequest:
+            case MessageType.GetInfoBaseSessionsRequest:
+                respWriter.WriteByte((byte)MessageType.GetSessionsResponse);
+                new GetSessionsResponse
+                {
+                    Sessions = new[]
+                    {
+                        new SessionInfo
+                        {
+                            Uuid = Guid.NewGuid(),
+                            AppId = "1CV8C",
+                            UserName = "TestUser",
+                            Id = 1,
+                            StartedAt = DateTime.UtcNow.AddMinutes(-30),
+                            LastActiveAt = DateTime.UtcNow
+                        }
+                    }
+                }.Serialize(ref respWriter);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetWorkingProcessesRequest:
+                respWriter.WriteByte((byte)MessageType.GetWorkingProcessesResponse);
+                new GetWorkingProcessesResponse
+                {
+                    Processes = new[]
+                    {
+                        new ProcessInfo
+                        {
+                            Uuid = Guid.NewGuid(),
+                            Host = "mock-server",
+                            Port = 1560,
+                            Pid = "1001",
+                            Running = true,
+                            Enable = true
+                        }
+                    }
+                }.Serialize(ref respWriter);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetConnectionsShortRequest:
+            case MessageType.GetInfoBaseConnectionsShortRequest:
+                respWriter.WriteByte((byte)MessageType.GetConnectionsShortResponse);
+                new GetConnectionsShortResponse
+                {
+                    Connections = new[]
+                    {
+                        new ConnectionInfo
+                        {
+                            Uuid = Guid.NewGuid(),
+                            Application = "1CV8C",
+                            Host = "127.0.0.1",
+                            Id = 101,
+                            SessionId = 1
+                        }
+                    }
+                }.Serialize(ref respWriter);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetLocksRequest:
+            case MessageType.GetInfoBaseLocksRequest:
+            case MessageType.GetConnectionLocksRequest:
+            case MessageType.GetSessionLocksRequest:
+                respWriter.WriteByte((byte)MessageType.GetLocksResponse);
+                new GetLocksResponse
+                {
+                    Locks = new[]
+                    {
+                        new LockInfo
+                        {
+                            ConnectionId = Guid.NewGuid(),
+                            Description = "Mock Lock",
+                            LockedAt = DateTime.UtcNow,
+                            ObjectId = Guid.NewGuid(),
+                            SessionId = Guid.NewGuid()
+                        }
+                    }
+                }.Serialize(ref respWriter);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetInfoBasesShortRequest:
+                respWriter.WriteByte((byte)MessageType.GetInfoBasesShortResponse);
+                new GetInfoBasesShortResponse
+                {
+                    InfoBases = new[]
+                    {
+                        new InfobaseSummaryInfo
+                        {
+                            Uuid = Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                            Name = "mock_db",
+                            Descr = "Mock Infobase"
+                        }
+                    }
+                }.Serialize(ref respWriter);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetAgentVersionRequest:
+                respWriter.WriteByte((byte)MessageType.GetAgentVersionResponse);
+                new GetAgentVersionResponse { Version = "8.3.24.1342" }.Serialize(ref respWriter);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.AuthenticateAgentRequest:
+            case MessageType.AuthenticateRequest:
+            case MessageType.AddAuthenticationRequest:
+            case MessageType.TerminateSessionRequest:
+            case MessageType.DisconnectRequest:
+                return new byte[] { 0x00 }; // VOID
+
+            default:
+                // Echo fallback
+                return body;
+        }
     }
 
     private static (int? EndpointId, short Format, byte[] Body) ParseEndpointMessage(byte[] payload)

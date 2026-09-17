@@ -1,6 +1,9 @@
 using System;
+using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
+using OneSTools.Ras.Client.Messages;
+using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Transport;
 
@@ -28,6 +31,59 @@ public sealed class RasEndpoint : IAsyncDisposable
     public Task<byte[]> SendMessageAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default)
     {
         return Connection.SendEndpointMessageAsync(EndpointId, payload, UseCompression, cancellationToken);
+    }
+
+    /// <summary>
+    /// Выполняет типизированный запрос к API и десериализует ответ.
+    /// </summary>
+    public async Task<TResponse> ExecuteAsync<TResponse>(IRasRequest<TResponse> request, int protocolVersion = 0, CancellationToken cancellationToken = default)
+        where TResponse : IRasResponse<TResponse>
+    {
+        byte[] requestBytes = FormatRequest(request, protocolVersion);
+        byte[] responseBytes = await SendMessageAsync(requestBytes, cancellationToken);
+        return ParseResponse<TResponse>(responseBytes, protocolVersion);
+    }
+
+    /// <summary>
+    /// Выполняет запрос к API, не возвращающий данных (void).
+    /// </summary>
+    public async Task ExecuteVoidAsync(IRasVoidRequest request, int protocolVersion = 0, CancellationToken cancellationToken = default)
+    {
+        byte[] requestBytes = FormatVoidRequest(request, protocolVersion);
+        await SendMessageAsync(requestBytes, cancellationToken);
+    }
+
+    private static byte[] FormatRequest<TResponse>(IRasRequest<TResponse> request, int protocolVersion)
+        where TResponse : IRasResponse<TResponse>
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        var writer = new RasWriter(buffer);
+        writer.WriteByte((byte)request.MessageType);
+        request.Serialize(ref writer, protocolVersion);
+        return buffer.WrittenSpan.ToArray();
+    }
+
+    private static byte[] FormatVoidRequest(IRasVoidRequest request, int protocolVersion)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        var writer = new RasWriter(buffer);
+        writer.WriteByte((byte)request.MessageType);
+        request.Serialize(ref writer, protocolVersion);
+        return buffer.WrittenSpan.ToArray();
+    }
+
+    private static TResponse ParseResponse<TResponse>(byte[] responseBytes, int protocolVersion)
+        where TResponse : IRasResponse<TResponse>
+    {
+        var seq = new ReadOnlySequence<byte>(responseBytes);
+        var reader = new RasReader(seq);
+
+        if (reader.Remaining > 0)
+        {
+            _ = reader.ReadByte(); // message type
+        }
+
+        return TResponse.Deserialize(ref reader, protocolVersion);
     }
 
     /// <summary>
