@@ -131,6 +131,7 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
             BatchSize = _batchSize
         };
 
+        await bulkCopy.InitAsync();
         await bulkCopy.WriteToServerAsync(rows, cancellationToken);
     }
 
@@ -225,6 +226,7 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
             BatchSize = _batchSize
         };
 
+        await bulkCopy.InitAsync();
         await bulkCopy.WriteToServerAsync(rows, cancellationToken);
     }
 
@@ -283,6 +285,7 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
             BatchSize = _batchSize
         };
 
+        await bulkCopy.InitAsync();
         await bulkCopy.WriteToServerAsync(rows, cancellationToken);
     }
 
@@ -327,6 +330,7 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
             BatchSize = _batchSize
         };
 
+        await bulkCopy.InitAsync();
         await bulkCopy.WriteToServerAsync(rows, cancellationToken);
     }
 
@@ -367,6 +371,7 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
             BatchSize = _batchSize
         };
 
+        await bulkCopy.InitAsync();
         await bulkCopy.WriteToServerAsync(rows, cancellationToken);
     }
 }
