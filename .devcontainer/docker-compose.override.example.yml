@@ -1,0 +1,17 @@
+# Пример перехода с локального mock-ras на реальный тестовый стенд RAS.
+#
+# Как использовать (не попадает в git):
+#   1) скопируйте файл в  docker-compose.override.yml
+#   2) укажите адрес стенда RAS в extra_hosts (либо используйте DNS/IP напрямую в appsettings.json)
+#   3) в src/OneSTools.Ras.Exporter/appsettings.json поменяйте RasExporter:Servers[0]:Host на real-ras
+#
+# Сервис mock-ras переводится на profile "disabled" и перестаёт стартовать по умолчанию,
+# но остаётся доступным для локальных тестов через: docker compose --profile disabled up mock-ras
+
+services:
+  mock-ras:
+    profiles: ["disabled"]
+
+  dotnet-dev:
+    extra_hosts:
+      - "real-ras:192.168.100.50"

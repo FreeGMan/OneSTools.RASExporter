@@ -1,0 +1,58 @@
+name: onestools-ras-dev
+
+services:
+  # Основной контейнер разработки (.NET 8 SDK, opencode CLI, сетевые утилиты)
+  dotnet-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/1c-rac-lib:cached
+      - nuget-cache:/home/vscode/.nuget/packages
+      - opencode-local-share:/home/vscode/.local/share/opencode
+      - opencode-cache:/home/vscode/.cache/opencode
+    environment:
+      - DOTNET_CLI_TELEMETRY_OPTOUT=1
+      - DOTNET_NOLOGO=1
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    command: sleep infinity
+    depends_on:
+      - clickhouse
+      - mock-ras
+
+  # ClickHouse для разработки схем и интеграционных тестов
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    environment:
+      - CLICKHOUSE_PASSWORD=
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ports:
+      - "8123:8123" # HTTP-интерфейс
+      - "9000:9000" # Native-протокол
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-log:/var/log/clickhouse-server
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  # Эмулятор RAS-сервера (SWP handshake). Заменяется реальным стендом 1С
+  # через docker-compose.override.yml либо изменением Host в appsettings.json.
+  mock-ras:
+    build:
+      context: ..
+      dockerfile: .devcontainer/mock-ras/Dockerfile
+    ports:
+      - "1545:1545"
+    restart: unless-stopped
+
+volumes:
+  nuget-cache:
+  opencode-local-share:
+  opencode-cache:
+  clickhouse-data:
+  clickhouse-log:

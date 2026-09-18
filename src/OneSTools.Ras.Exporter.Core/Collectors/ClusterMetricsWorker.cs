@@ -1,0 +1,81 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using OneSTools.Ras.Client;
+using OneSTools.Ras.Exporter.Core.Pipeline;
+using OneSTools.Ras.Exporter.Core.Storage;
+
+namespace OneSTools.Ras.Exporter.Core.Collectors;
+
+public sealed record ClusterCollectorIntervals(
+    TimeSpan Clusters,
+    TimeSpan Sessions,
+    TimeSpan Processes,
+    TimeSpan Connections,
+    TimeSpan Locks);
+
+public sealed class ClusterMetricsWorker
+{
+    private readonly RasAdminClient _client;
+    private readonly Guid _clusterId;
+    private readonly string _clusterName;
+    private readonly MetricsBatchingPipeline _pipeline;
+    private readonly IMetricsStorage _storage;
+    private readonly ClusterCollectorIntervals _intervals;
+    private readonly ILogger _logger;
+
+    public ClusterMetricsWorker(
+        RasAdminClient client,
+        Guid clusterId,
+        string clusterName,
+        MetricsBatchingPipeline pipeline,
+        IMetricsStorage storage,
+        ClusterCollectorIntervals intervals,
+        ILogger? logger = null)
+    {
+        _client = client;
+        _clusterId = clusterId;
+        _clusterName = clusterName;
+        _pipeline = pipeline;
+        _storage = storage;
+        _intervals = intervals;
+        _logger = logger ?? NullLogger.Instance;
+    }
+
+    public async Task RunAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Запуск сбора метрик для кластера {Name} ({Id})", _clusterName, _clusterId);
+
+        // 1. Initialize database & tables in storage
+        try
+        {
+            string dbName = _storage.GetDatabaseName(_clusterName, _clusterId);
+            await _storage.InitializeClusterDatabaseAsync(dbName, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка инициализации базы данных ClickHouse для кластера {Name}", _clusterName);
+        }
+
+        // 2. Instantiate collectors
+        var summaryCollector = new ClusterSummaryCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Clusters, _logger);
+        var sessionCollector = new SessionCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Sessions, _logger);
+        var processCollector = new ProcessCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Processes, _logger);
+        var connectionCollector = new ConnectionCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Connections, _logger);
+        var lockCollector = new LockCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Locks, _logger);
+
+        // 3. Run all collectors concurrently
+        var tasks = new[]
+        {
+            summaryCollector.RunAsync(cancellationToken),
+            sessionCollector.RunAsync(cancellationToken),
+            processCollector.RunAsync(cancellationToken),
+            connectionCollector.RunAsync(cancellationToken),
+            lockCollector.RunAsync(cancellationToken)
+        };
+
+        await Task.WhenAll(tasks);
+    }
+}

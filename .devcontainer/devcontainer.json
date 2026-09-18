@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
+  "name": "OneSTools.Ras (C# .NET 8)",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "dotnet-dev",
+  "workspaceFolder": "/workspaces/1c-rac-lib",
+  "remoteUser": "vscode",
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "dotnet.enableRoslynAnalyzers": true,
+        "dotnet.backgroundAnalysis.analyzerDiagnosticsScope": "openFiles",
+        "editor.formatOnSave": true,
+        "editor.trimAutoWhitespace": true,
+        "files.trimTrailingWhitespace": true,
+        "dotnet.defaultSolution": "OneSTools.Ras.sln"
+      },
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit",
+        "formulahendry.dotnet-test-explorer",
+        "EditorConfig.EditorConfig",
+        "ms-azuretools.vscode-docker",
+        "tamasfe.even-better-toml"
+      ]
+    }
+  },
+
+  "forwardPorts": [1545, 8123, 9000],
+  "portsAttributes": {
+    "8123": { "label": "ClickHouse HTTP", "onAutoForward": "ignore" },
+    "9000": { "label": "ClickHouse Native", "onAutoForward": "ignore" },
+    "1545": { "label": "Mock/RAS", "onAutoForward": "silent" }
+  },
+
+  "postCreateCommand": "dotnet restore OneSTools.Ras.sln"
+}
