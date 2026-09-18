@@ -1,0 +1,21 @@
+## .NET build artifacts
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.nupkg
+TestResults/
+
+## Rider / IDE
+.idea/
+*.DotSettings.user
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Local config
+**/appsettings.local.json
+**/appsettings.Development.json
+docker-compose.override.local.yml

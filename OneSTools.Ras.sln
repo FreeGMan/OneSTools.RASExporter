@@ -1,0 +1,64 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{6790DBC8-6686-4F6B-A77C-137696F971EC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OneSTools.Ras.Client", "src\OneSTools.Ras.Client\OneSTools.Ras.Client.csproj", "{82ABEF0A-334A-4119-91FA-16B754F5AFD6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OneSTools.Ras.Exporter.Core", "src\OneSTools.Ras.Exporter.Core\OneSTools.Ras.Exporter.Core.csproj", "{0A928EE1-F678-42C3-B371-5E1BEC38B714}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OneSTools.Ras.Exporter", "src\OneSTools.Ras.Exporter\OneSTools.Ras.Exporter.csproj", "{295C19DE-F613-42CF-A7C6-EB978DAF406F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OneSTools.Ras.MockServer", "src\OneSTools.Ras.MockServer\OneSTools.Ras.MockServer.csproj", "{00CBB735-C596-47ED-A2F7-14703C1A4162}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{C5D75414-8E8C-4213-B9A1-F89C3915ADDC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OneSTools.Ras.Client.Tests", "tests\OneSTools.Ras.Client.Tests\OneSTools.Ras.Client.Tests.csproj", "{501CDC0C-C795-40D1-97CB-740BC9428823}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OneSTools.Ras.IntegrationTests", "tests\OneSTools.Ras.IntegrationTests\OneSTools.Ras.IntegrationTests.csproj", "{EC3CA1DB-0FF5-496E-ADFA-0D17AE9EBDAB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{82ABEF0A-334A-4119-91FA-16B754F5AFD6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{82ABEF0A-334A-4119-91FA-16B754F5AFD6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{82ABEF0A-334A-4119-91FA-16B754F5AFD6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{82ABEF0A-334A-4119-91FA-16B754F5AFD6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0A928EE1-F678-42C3-B371-5E1BEC38B714}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0A928EE1-F678-42C3-B371-5E1BEC38B714}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0A928EE1-F678-42C3-B371-5E1BEC38B714}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0A928EE1-F678-42C3-B371-5E1BEC38B714}.Release|Any CPU.Build.0 = Release|Any CPU
+		{295C19DE-F613-42CF-A7C6-EB978DAF406F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{295C19DE-F613-42CF-A7C6-EB978DAF406F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{295C19DE-F613-42CF-A7C6-EB978DAF406F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{295C19DE-F613-42CF-A7C6-EB978DAF406F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{00CBB735-C596-47ED-A2F7-14703C1A4162}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{00CBB735-C596-47ED-A2F7-14703C1A4162}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{00CBB735-C596-47ED-A2F7-14703C1A4162}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{00CBB735-C596-47ED-A2F7-14703C1A4162}.Release|Any CPU.Build.0 = Release|Any CPU
+		{501CDC0C-C795-40D1-97CB-740BC9428823}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{501CDC0C-C795-40D1-97CB-740BC9428823}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{501CDC0C-C795-40D1-97CB-740BC9428823}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{501CDC0C-C795-40D1-97CB-740BC9428823}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EC3CA1DB-0FF5-496E-ADFA-0D17AE9EBDAB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EC3CA1DB-0FF5-496E-ADFA-0D17AE9EBDAB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EC3CA1DB-0FF5-496E-ADFA-0D17AE9EBDAB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EC3CA1DB-0FF5-496E-ADFA-0D17AE9EBDAB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{82ABEF0A-334A-4119-91FA-16B754F5AFD6} = {6790DBC8-6686-4F6B-A77C-137696F971EC}
+		{0A928EE1-F678-42C3-B371-5E1BEC38B714} = {6790DBC8-6686-4F6B-A77C-137696F971EC}
+		{295C19DE-F613-42CF-A7C6-EB978DAF406F} = {6790DBC8-6686-4F6B-A77C-137696F971EC}
+		{00CBB735-C596-47ED-A2F7-14703C1A4162} = {6790DBC8-6686-4F6B-A77C-137696F971EC}
+		{501CDC0C-C795-40D1-97CB-740BC9428823} = {C5D75414-8E8C-4213-B9A1-F89C3915ADDC}
+		{EC3CA1DB-0FF5-496E-ADFA-0D17AE9EBDAB} = {C5D75414-8E8C-4213-B9A1-F89C3915ADDC}
+	EndGlobalSection
+EndGlobal
