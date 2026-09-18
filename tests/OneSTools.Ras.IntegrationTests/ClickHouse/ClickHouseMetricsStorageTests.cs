@@ -14,30 +14,36 @@ namespace OneSTools.Ras.IntegrationTests.ClickHouse;
 
 public sealed class ClickHouseMetricsStorageTests
 {
-    private const string ConnectionString = "Host=clickhouse;Port=8123;Username=default;Password=;";
+    private const string ConnectionString = "Host=clickhouse;Port=8123;Username=default;Password=clickhouse;";
     private const string TestDatabase = "ras_integration_test";
 
-    private static async Task<bool> IsClickHouseAvailableAsync()
+    private static async Task<(bool Available, string? Error)> CheckClickHouseAvailabilityAsync()
     {
         try
         {
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
-            var res = await client.GetAsync("http://clickhouse:8123/?query=SELECT%201");
-            return res.IsSuccessStatusCode;
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using var conn = new ClickHouseConnection(ConnectionString);
+            await conn.OpenAsync(cts.Token);
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT 1";
+            var res = await cmd.ExecuteScalarAsync(cts.Token);
+            if (res is not null && Convert.ToInt32(res) == 1)
+            {
+                return (true, null);
+            }
+            return (false, "Запрос 'SELECT 1' не вернул ожидаемого результата.");
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            return (false, ex.Message);
         }
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Can_Initialize_Database_And_Insert_All_Metric_Types()
     {
-        if (!await IsClickHouseAvailableAsync())
-        {
-            return; // ClickHouse is not available in environment
-        }
+        var (available, error) = await CheckClickHouseAvailabilityAsync();
+        Skip.If(!available, $"ClickHouse недоступен ({error}). Строка подключения: '{ConnectionString}'.");
 
         var storage = new ClickHouseMetricsStorage(
             ConnectionString,

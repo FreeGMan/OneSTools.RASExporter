@@ -6,7 +6,7 @@ public sealed class ClickHouseSettings
     public const string SectionName = "ClickHouse";
 
     /// <summary>Строка подключения ClickHouse (HTTP интерфейс, порт по умолчанию 8123).</summary>
-    public string ConnectionString { get; set; } = "Host=clickhouse;Port=8123;Username=default;Password=;";
+    public string ConnectionString { get; set; } = "Host=clickhouse;Port=8123;Username=default;Password=clickhouse;";
 
     /// <summary>Префикс имени базы данных кластера.</summary>
     public string DatabasePrefix { get; set; } = "ras_";

@@ -18,24 +18,32 @@ namespace OneSTools.Ras.IntegrationTests.ClickHouse;
 
 public sealed class FullExportPipelineTests : IAsyncLifetime
 {
-    private const string ConnectionString = "Host=clickhouse;Port=8123;Username=default;Password=;";
+    private const string ConnectionString = "Host=clickhouse;Port=8123;Username=default;Password=clickhouse;";
     private const string TestDatabase = "ras_e2e_pipeline_test";
 
     private readonly CancellationTokenSource _serverCts = new();
     private Task? _serverTask;
     private int _port;
 
-    private static async Task<bool> IsClickHouseAvailableAsync()
+    private static async Task<(bool Available, string? Error)> CheckClickHouseAvailabilityAsync()
     {
         try
         {
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
-            var res = await client.GetAsync("http://clickhouse:8123/?query=SELECT%201");
-            return res.IsSuccessStatusCode;
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using var conn = new ClickHouseConnection(ConnectionString);
+            await conn.OpenAsync(cts.Token);
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT 1";
+            var res = await cmd.ExecuteScalarAsync(cts.Token);
+            if (res is not null && Convert.ToInt32(res) == 1)
+            {
+                return (true, null);
+            }
+            return (false, "Запрос 'SELECT 1' не вернул ожидаемого результата.");
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            return (false, ex.Message);
         }
     }
 
@@ -74,13 +82,11 @@ public sealed class FullExportPipelineTests : IAsyncLifetime
         _serverCts.Dispose();
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task EndToEnd_MockServer_To_Pipeline_To_ClickHouse_Works()
     {
-        if (!await IsClickHouseAvailableAsync())
-        {
-            return; // ClickHouse is not available in environment
-        }
+        var (available, error) = await CheckClickHouseAvailabilityAsync();
+        Skip.If(!available, $"ClickHouse недоступен ({error}). Строка подключения: '{ConnectionString}'.");
 
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
