@@ -28,11 +28,12 @@
     }
   },
 
-  "forwardPorts": [1545, 8123, 9000],
+  "forwardPorts": [1545, 1546, 8123, 9000],
   "portsAttributes": {
     "8123": { "label": "ClickHouse HTTP", "onAutoForward": "ignore" },
     "9000": { "label": "ClickHouse Native", "onAutoForward": "ignore" },
-    "1545": { "label": "Mock/RAS", "onAutoForward": "silent" }
+    "1545": { "label": "RAS Mock", "onAutoForward": "silent" },
+    "1546": { "label": "RAS Real 1C", "onAutoForward": "silent" }
   },
 
   "postCreateCommand": "dotnet restore OneSTools.Ras.sln"

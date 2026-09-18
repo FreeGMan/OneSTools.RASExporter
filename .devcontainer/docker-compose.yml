@@ -22,6 +22,7 @@ services:
     depends_on:
       - clickhouse
       - mock-ras
+      - ras
 
   # ClickHouse для разработки схем и интеграционных тестов
   clickhouse:
@@ -40,14 +41,30 @@ services:
         soft: 262144
         hard: 262144
 
-  # Эмулятор RAS-сервера (SWP handshake). Заменяется реальным стендом 1С
-  # через docker-compose.override.yml либо изменением Host в appsettings.json.
+  # Эмулятор RAS-сервера (SWP handshake). Заменяется реальным RAS 1С
+  # изменением Host в appsettings.json.
   mock-ras:
     build:
       context: ..
       dockerfile: .devcontainer/mock-ras/Dockerfile
     ports:
       - "1545:1545"
+    restart: unless-stopped
+
+  # Реальный RAS-сервер "1С:Предприятие 8.3" (прокси к агенту кластера ragent).
+  # Собрано из минимального набора файлов платформы: ras-minimal/Dockerfile.
+  # Доступен из других контейнеров по адресу ras:1545; на хост проброшен 1546:1545,
+  # т.к. 1545 на хосте уже занят mock-ras. RAS стартует, даже если ragent недоступен;
+  # чтобы администрировать реальный кластер — задайте RAS_CLUSTER_ADDRESS (host[:port]).
+  ras:
+    build:
+      context: ../ras-minimal
+      dockerfile: Dockerfile
+    environment:
+      - RAS_PORT=1545
+      - RAS_CLUSTER_ADDRESS=
+    ports:
+      - "1546:1545"
     restart: unless-stopped
 
 volumes:

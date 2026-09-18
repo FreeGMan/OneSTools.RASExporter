@@ -19,3 +19,9 @@ Thumbs.db
 **/appsettings.local.json
 **/appsettings.Development.json
 docker-compose.override.local.yml
+
+## 1C platform source (full unpacked distro, 2.3 GB)
+ras-server/
+
+## ras-minimal/bin are curated 1C platform binaries (build context for ras image)
+!ras-minimal/bin/

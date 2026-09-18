@@ -69,6 +69,7 @@ proto-контрактами (`reference/v8platform-protos/`) и Go-кодеко
 | `dotnet-dev` | Контейнер разработки (.NET 8 SDK + opencode CLI) | — | — |
 | `clickhouse` | Хранилище для dev/интеграционных тестов | `clickhouse:8123`, `clickhouse:9000` | `localhost:8123`, `localhost:9000` |
 | `mock-ras` | Эмулятор RAS (SWP handshake) | `mock-ras:1545` | `localhost:1545` |
+| `ras` | Реальный RAS-сервер 1С 8.3 (ras-minimal/, прокси к ragent) | `ras:1545` | `localhost:1546` |
 
 - VSCode: расширения C# Dev Kit, dotnet-test-explorer, Docker.
 - Команды (внутри `dotnet-dev`):
