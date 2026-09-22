@@ -8,7 +8,13 @@ using OneSTools.Ras.Exporter.Core.Pipeline;
 using OneSTools.Ras.Exporter.Core.Storage;
 using OneSTools.Ras.Exporter.Services;
 
-var builder = Host.CreateApplicationBuilder(args);
+// Content root = каталог исполняемого файла: appsettings.json всегда подхватывается
+// рядом с бинарником (publish) и из выходного каталога (dotnet run из любой директории).
+var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+});
 
 builder.Services
     .AddOptions<RasExporterSettings>()
