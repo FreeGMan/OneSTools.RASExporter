@@ -32,9 +32,9 @@
   "portsAttributes": {
     "8123": { "label": "ClickHouse HTTP", "onAutoForward": "ignore" },
     "9000": { "label": "ClickHouse Native", "onAutoForward": "ignore" },
-    "1545": { "label": "RAS Mock", "onAutoForward": "silent" },
+    // "1545": { "label": "RAS Mock", "onAutoForward": "silent" },
     "1546": { "label": "RAS Real 1C", "onAutoForward": "silent" }
   },
 
-  "postCreateCommand": "dotnet restore OneSTools.Ras.sln"
+  "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.nuget && dotnet restore OneSTools.Ras.sln"
 }

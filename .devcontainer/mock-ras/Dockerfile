@@ -10,7 +10,7 @@ RUN dotnet restore src/OneSTools.Ras.MockServer/OneSTools.Ras.MockServer.csproj
 
 COPY src/ src/
 RUN dotnet publish src/OneSTools.Ras.MockServer/OneSTools.Ras.MockServer.csproj \
-    -c Release -o /app/publish --no-restore
+    -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/runtime:8.0
 WORKDIR /app
