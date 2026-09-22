@@ -1,5 +1,5 @@
 # only bin/ and conf/ are part of the image build context
-ras-server/
+1c-server/
 src/
 tests/
 reference/
