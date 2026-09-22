@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OneSTools.Ras.LoadSim</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OneSTools.Ras.Client\OneSTools.Ras.Client.csproj" />
+  </ItemGroup>
+
+</Project>
