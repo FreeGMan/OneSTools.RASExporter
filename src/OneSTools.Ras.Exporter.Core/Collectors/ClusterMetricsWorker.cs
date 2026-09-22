@@ -66,16 +66,30 @@ public sealed class ClusterMetricsWorker
         var connectionCollector = new ConnectionCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Connections, _logger);
         var lockCollector = new LockCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Locks, _logger);
 
-        // 3. Run all collectors concurrently
+        // 3. Run all collectors concurrently (запросы сериализуются гейтом эндпоинта);
+        // первая же ошибка (например, смерть соединения) останавливает остальных —
+        // вызывающий слой делает переподключение.
+        using var sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var tasks = new[]
         {
-            summaryCollector.RunAsync(cancellationToken),
-            sessionCollector.RunAsync(cancellationToken),
-            processCollector.RunAsync(cancellationToken),
-            connectionCollector.RunAsync(cancellationToken),
-            lockCollector.RunAsync(cancellationToken)
+            summaryCollector.RunAsync(sessionCts.Token),
+            sessionCollector.RunAsync(sessionCts.Token),
+            processCollector.RunAsync(sessionCts.Token),
+            connectionCollector.RunAsync(sessionCts.Token),
+            lockCollector.RunAsync(sessionCts.Token)
         };
 
-        await Task.WhenAll(tasks);
+        var first = await Task.WhenAny(tasks);
+        sessionCts.Cancel();
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch when (first.IsFaulted)
+        {
+        }
+
+        if (first.IsFaulted)
+            first.GetAwaiter().GetResult();
     }
 }

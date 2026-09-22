@@ -15,12 +15,16 @@ using OneSTools.Ras.Exporter.Core.Storage;
 
 namespace OneSTools.Ras.Exporter.Services;
 
+/// <summary>
+/// Диспетчер сбора: вариант C — на каждую пару (сервер RAS, кластер) своё SWP-соединение
+/// со своим reconnect-циклом; обнаружение кластеров — отдельный периодический проход.
+/// Изоляция: падение/тормоза одного кластера не влияют на остальные (замеры LoadSim, TODO.md 10-LoadTest).
+/// </summary>
 public sealed class RasExportService : BackgroundService
 {
     private readonly RasExporterSettings _rasSettings;
-    private readonly ClickHouseSettings _clickHouseSettings;
-    private readonly IMetricsStorage _storage;
     private readonly MetricsBatchingPipeline _pipeline;
+    private readonly IMetricsStorage _storage;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<RasExportService> _logger;
 
@@ -33,7 +37,6 @@ public sealed class RasExportService : BackgroundService
         ILogger<RasExportService> logger)
     {
         _rasSettings = rasSettings.Value;
-        _clickHouseSettings = clickHouseSettings.Value;
         _storage = storage;
         _pipeline = pipeline;
         _loggerFactory = loggerFactory;
@@ -52,7 +55,7 @@ public sealed class RasExportService : BackgroundService
         }
 
         var serverTasks = _rasSettings.Servers
-            .Select(server => RunServerLoopAsync(server, stoppingToken))
+            .Select(server => RunServerAsync(server, stoppingToken))
             .ToArray();
 
         try
@@ -71,81 +74,68 @@ public sealed class RasExportService : BackgroundService
         }
     }
 
-    private async Task RunServerLoopAsync(RasServerSettings server, CancellationToken stoppingToken)
+    private async Task RunServerAsync(RasServerSettings server, CancellationToken stoppingToken)
     {
         var serverLogger = _loggerFactory.CreateLogger($"RasServer.{server.Name}");
+        var intervals = new ClusterCollectorIntervals(
+            server.PollIntervals.Clusters,
+            server.PollIntervals.Sessions,
+            server.PollIntervals.Processes,
+            server.PollIntervals.Connections,
+            server.PollIntervals.Locks);
 
-        while (!stoppingToken.IsCancellationRequested)
+        var running = new Dictionary<(Guid, string), CancellationTokenSource>();
+        var allCts = new List<CancellationTokenSource>();
+        var clusterTasks = new List<Task>();
+
+        try
         {
-            try
+            while (!stoppingToken.IsCancellationRequested)
             {
-                serverLogger.LogInformation("Подключение к серверу RAS {Name} ({Host}:{Port})...", server.Name, server.Host, server.Port);
-
-                var clientLogger = _loggerFactory.CreateLogger<RasAdminClient>();
-                await using var client = new RasAdminClient(server.Host, server.Port, clientLogger);
-
-                var connectCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(server.ConnectTimeoutMilliseconds));
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, connectCts.Token);
-
-                await client.ConnectAsync(server.AgentAuth.User, server.AgentAuth.Password, cancellationToken: linkedCts.Token);
-                serverLogger.LogInformation("Успешное подключение к серверу RAS {Name}", server.Name);
-
-                // Discover clusters
-                var discoveredClusters = await client.GetClustersAsync(stoppingToken);
-                serverLogger.LogInformation("Обнаружено {Count} кластеров на сервере {Name}", discoveredClusters.Count, server.Name);
-
-                var clusterWorkers = new List<Task>();
-                var intervals = new ClusterCollectorIntervals(
-                    server.PollIntervals.Clusters,
-                    server.PollIntervals.Sessions,
-                    server.PollIntervals.Processes,
-                    server.PollIntervals.Connections,
-                    server.PollIntervals.Locks);
-
-                var targetClusters = ResolveTargetClusters(server, discoveredClusters);
-
-                foreach (var (clusterId, clusterName, user, password) in targetClusters)
-                {
-                    // Реальный RAS требует явный authenticateCluster даже для кластеров
-                    // без аутентификации (пустые учётки = анонимный вход). Без него
-                    // GetSessions/GetWorkingProcesses/... отваливаются с #Rights (см. TODO.md п.8).
-                    try
-                    {
-                        await client.AuthenticateClusterAsync(clusterId, user ?? string.Empty, password ?? string.Empty, stoppingToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        serverLogger.LogError(ex, "Ошибка аутентификации в кластере {ClusterName} ({ClusterId})", clusterName, clusterId);
-                        continue;
-                    }
-
-                    var worker = new ClusterMetricsWorker(
-                        client, clusterId, clusterName, _pipeline, _storage, intervals,
-                        _loggerFactory.CreateLogger($"Cluster.{clusterName}"));
-
-                    clusterWorkers.Add(worker.RunAsync(stoppingToken));
-                }
-
-                if (clusterWorkers.Count > 0)
-                {
-                    await Task.WhenAll(clusterWorkers);
-                }
-                else
-                {
-                    serverLogger.LogWarning("Нет активных кластеров для сбора на сервере {Name}", server.Name);
-                    await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
-                }
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                serverLogger.LogError(ex, "Ошибка соединения с сервером RAS {Name}. Повтор через 5 секунд...", server.Name);
+                IReadOnlyList<ClusterTarget> targets;
                 try
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                    targets = await DiscoverTargetsAsync(server, stoppingToken);
+                    serverLogger.LogInformation("Обнаружено {Count} целевых кластеров на сервере {Name}", targets.Count, server.Name);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    serverLogger.LogError(ex, "Ошибка обнаружения кластеров на {Name}. Повтор через 5 секунд...", server.Name);
+                    try { await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken); } catch (OperationCanceledException) { break; }
+                    continue;
+                }
+
+                foreach (var target in targets)
+                {
+                    var key = (target.ClusterId, target.User ?? string.Empty);
+                    if (running.ContainsKey(key))
+                        continue;
+
+                    var clusterCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                    running[key] = clusterCts;
+                    allCts.Add(clusterCts);
+                    clusterTasks.Add(RunClusterLoopAsync(server, target, intervals, clusterCts));
+                    serverLogger.LogInformation("Кластер {ClusterName} ({ClusterId}): запущен выделенный конвейер сбора", target.ClusterName, target.ClusterId);
+                }
+
+                var wanted = targets.Select(t => (t.ClusterId, t.User ?? string.Empty)).ToHashSet();
+                foreach (var (key, cts) in running.ToList())
+                {
+                    if (wanted.Contains(key))
+                        continue;
+
+                    cts.Cancel();
+                    running.Remove(key);
+                    serverLogger.LogInformation("Кластер {ClusterId}: убран из конфигурации/списка, сбор остановлен", key.Item1);
+                }
+
+                try
+                {
+                    await Task.Delay(server.PollIntervals.Clusters, stoppingToken);
                 }
                 catch (OperationCanceledException)
                 {
@@ -153,13 +143,83 @@ public sealed class RasExportService : BackgroundService
                 }
             }
         }
+        finally
+        {
+            foreach (var cts in running.Values)
+                cts.Cancel();
+
+            await Task.WhenAll(clusterTasks.Select(t => t.ContinueWith(static t => t.Exception, TaskScheduler.Default)));
+            foreach (var cts in allCts)
+                cts.Dispose();
+        }
     }
 
-    private static List<(Guid ClusterId, string ClusterName, string? User, string? Password)> ResolveTargetClusters(
+    private async Task<List<ClusterTarget>> DiscoverTargetsAsync(RasServerSettings server, CancellationToken stoppingToken)
+    {
+        await using var client = new RasAdminClient(server.Host, server.Port, _loggerFactory.CreateLogger<RasAdminClient>());
+
+        using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+        connectCts.CancelAfter(TimeSpan.FromMilliseconds(server.ConnectTimeoutMilliseconds));
+
+        await client.ConnectAsync(server.AgentAuth.User, server.AgentAuth.Password, cancellationToken: connectCts.Token);
+        var discovered = await client.GetClustersAsync(connectCts.Token);
+
+        return ResolveTargetClusters(server, discovered);
+    }
+
+    private async Task RunClusterLoopAsync(RasServerSettings server, ClusterTarget target, ClusterCollectorIntervals intervals, CancellationTokenSource clusterCts)
+    {
+        var token = clusterCts.Token;
+        var clusterLogger = _loggerFactory.CreateLogger($"Cluster.{target.ClusterName}");
+
+        while (!token.IsCancellationRequested)
+        {
+            RasAdminClient? client = null;
+            try
+            {
+                client = new RasAdminClient(server.Host, server.Port, _loggerFactory.CreateLogger<RasAdminClient>());
+
+                using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+                connectCts.CancelAfter(TimeSpan.FromMilliseconds(server.ConnectTimeoutMilliseconds));
+
+                clusterLogger.LogInformation("Подключение к RAS {Host}:{Port} для кластера...", server.Host, server.Port);
+                await client.ConnectAsync(server.AgentAuth.User, server.AgentAuth.Password, cancellationToken: connectCts.Token);
+
+                // Реальный RAS требует явный authenticateCluster даже с пустыми учётками (TODO.md п.8).
+                await client.AuthenticateClusterAsync(target.ClusterId, target.User ?? string.Empty, target.Password ?? string.Empty, token);
+                clusterLogger.LogInformation("Сессия RAS для кластера {ClusterName} установлена", target.ClusterName);
+
+                var worker = new ClusterMetricsWorker(
+                    client, target.ClusterId, target.ClusterName, _pipeline, _storage, intervals, clusterLogger);
+
+                await worker.RunAsync(token);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                clusterLogger.LogError(ex, "Ошибка сессии RAS кластера {ClusterName}. Переподключение через 5 секунд...", target.ClusterName);
+                try { await Task.Delay(TimeSpan.FromSeconds(5), token); } catch (OperationCanceledException) { break; }
+            }
+            finally
+            {
+                if (client is not null)
+                {
+                    await client.DisposeAsync();
+                }
+            }
+        }
+
+        clusterLogger.LogInformation("Сбор метрик кластера {ClusterName} остановлен", target.ClusterName);
+    }
+
+    private static List<ClusterTarget> ResolveTargetClusters(
         RasServerSettings server,
         IReadOnlyList<ClusterInfo> discoveredClusters)
     {
-        var result = new List<(Guid ClusterId, string ClusterName, string? User, string? Password)>();
+        var result = new List<ClusterTarget>();
 
         if (server.Clusters.Count > 0)
         {
@@ -188,7 +248,11 @@ public sealed class RasExportService : BackgroundService
 
                 if (clusterId != Guid.Empty)
                 {
-                    result.Add((clusterId, string.IsNullOrEmpty(clusterName) ? clusterId.ToString() : clusterName, clusterCfg.User, clusterCfg.Password));
+                    result.Add(new ClusterTarget(
+                        clusterId,
+                        string.IsNullOrEmpty(clusterName) ? clusterId.ToString() : clusterName,
+                        clusterCfg.User,
+                        clusterCfg.Password));
                 }
             }
         }
@@ -197,10 +261,12 @@ public sealed class RasExportService : BackgroundService
             // Auto-target all discovered clusters
             foreach (var c in discoveredClusters)
             {
-                result.Add((c.Uuid, c.Name, null, null));
+                result.Add(new ClusterTarget(c.Uuid, c.Name, null, null));
             }
         }
 
         return result;
     }
+
+    private sealed record ClusterTarget(Guid ClusterId, string ClusterName, string? User, string? Password);
 }

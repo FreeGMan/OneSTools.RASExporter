@@ -47,6 +47,10 @@ public sealed class ProcessCollector
             {
                 break;
             }
+            catch (Exception) when (_client.Connection.IsClosed)
+            {
+                throw; // соединение RAS мертво — ClusterMetricsWorker/экспортёр переподключатся
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Ошибка при сборе рабочих процессов кластера {Cluster}", _clusterName);

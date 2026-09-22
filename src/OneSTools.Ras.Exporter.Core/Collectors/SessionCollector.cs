@@ -47,6 +47,10 @@ public sealed class SessionCollector
             {
                 break;
             }
+            catch (Exception) when (_client.Connection.IsClosed)
+            {
+                throw; // соединение RAS мертво — ClusterMetricsWorker/экспортёр переподключатся
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Ошибка при сборе сессий кластера {Cluster}", _clusterName);

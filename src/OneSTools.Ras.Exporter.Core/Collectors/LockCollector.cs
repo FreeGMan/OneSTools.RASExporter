@@ -47,6 +47,10 @@ public sealed class LockCollector
             {
                 break;
             }
+            catch (Exception) when (_client.Connection.IsClosed)
+            {
+                throw; // соединение RAS мертво — ClusterMetricsWorker/экспортёр переподключатся
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Ошибка при сборе блокировок кластера {Cluster}", _clusterName);

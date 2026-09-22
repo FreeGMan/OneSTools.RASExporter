@@ -48,6 +48,10 @@ public sealed class ClusterSummaryCollector
             {
                 break;
             }
+            catch (Exception) when (_client.Connection.IsClosed)
+            {
+                throw; // соединение RAS мертво — ClusterMetricsWorker/экспортёр переподключатся
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Ошибка при сборе сводки кластера {Cluster}", _clusterName);
