@@ -60,7 +60,7 @@ public sealed class RasEndpointTests : IAsyncLifetime
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await connection.ConnectAsync(null, cts.Token);
 
-        var serviceId = new ServiceId("com.1c.v8.ibis.admin.IAgentAdminConnection", "1.0");
+        var serviceId = new ServiceId("v8.service.Admin.Cluster", "14.0");
         
         await using var endpoint = await connection.OpenEndpointAsync(serviceId, cancellationToken: cts.Token);
 
@@ -83,7 +83,7 @@ public sealed class RasEndpointTests : IAsyncLifetime
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await connection.ConnectAsync(null, cts.Token);
 
-        var serviceId = new ServiceId("com.1c.v8.ibis.admin.IAgentAdminConnection", "1.0");
+        var serviceId = new ServiceId("v8.service.Admin.Cluster", "14.0");
         var parameters = new Dictionary<string, object?>
         {
             { "endpoint.encoding", "none" }

@@ -118,6 +118,9 @@ public sealed class FullExportPipelineTests : IAsyncLifetime
         Assert.NotEmpty(clusters);
         var cluster = clusters[0];
 
+        // Реальный RAS (и следом_mock) требует явный authenticateCluster даже с пустыми учётками.
+        await client.AuthenticateClusterAsync(cluster.Uuid, "", "", cts.Token);
+
         // 4. Run collectors once
         var summaryCollector = new ClusterSummaryCollector(client, cluster.Uuid, cluster.Name, pipeline, TimeSpan.FromSeconds(10));
         var sessionCollector = new SessionCollector(client, cluster.Uuid, cluster.Name, pipeline, TimeSpan.FromSeconds(10));

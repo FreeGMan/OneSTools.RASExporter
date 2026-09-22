@@ -1,7 +1,9 @@
 using System.Buffers;
+using System.Linq;
 using System.Buffers.Binary;
 using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
+using OneSTools.Ras.Client.Exceptions;
 using OneSTools.Ras.Client.Messages;
 using OneSTools.Ras.Client.Models;
 using OneSTools.Ras.Client.Protocol;
@@ -13,21 +15,37 @@ namespace OneSTools.Ras.MockServer.Handlers;
 /// <summary>
 /// Обработка одного TCP-подключения клиента RAS:
 /// Negotiate (raw 8 байт) → Connect (type 1) → ConnectAck (type 2) → цикл фреймов.
-/// Источник: docs/TRANSPORT_SPEC.md, разделы 4–8.
+/// Источник: docs/TRANSPORT_SPEC.md, разделы 4–8; поведение сервиса администрирования
+/// и отказов — по реальному RAS 8.3.25.1520 (см. tests/.../RealRas, TODO.md п.2/7).
 /// </summary>
 public sealed class ClientSession
 {
     public const string KeepAliveTimeoutKey = "nipple.swp.connection.keep_alive.timeout";
 
+    public const string AdminServiceName = "v8.service.Admin.Cluster";
+    public const string DefaultMaxAdminVersion = "14.0";
+
+    public static IReadOnlyList<string> SupportedAdminVersions(int majorMax)
+    {
+        if (majorMax > 14) majorMax = 14;
+        return Enumerable.Range(3, majorMax - 2).Select(v => v + ".0").ToList();
+    }
+
+    private const string RightsDeniedClass = "v8.service.Admin.Cluster#Rights";
+    private const string RightsDeniedMessage = "Insufficient user rights to manage the cluster Mock-Cluster-01";
+
     private readonly TcpClient _client;
     private readonly ILogger _logger;
+    private readonly IReadOnlyList<string> _supportedAdminVersions;
     private int _nextEndpointId = 1;
-    private readonly Dictionary<int, bool> _endpointCompression = new();
+    private readonly Dictionary<int, (bool Compression, int Version)> _endpoints = new();
+    private bool _clusterAuthenticated;
 
-    public ClientSession(TcpClient client, ILogger logger)
+    public ClientSession(TcpClient client, ILogger logger, int maxAdminVersionMajor = 14)
     {
         _client = client;
         _logger = logger;
+        _supportedAdminVersions = SupportedAdminVersions(maxAdminVersionMajor);
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
@@ -111,14 +129,48 @@ public sealed class ClientSession
     {
         var (name, version, parameters) = ParseEndpointOpen(payload);
 
+        if (name != AdminServiceName || version is null || !_supportedAdminVersions.Contains(version))
+        {
+            await RejectUnsupportedServiceAsync(stream, name, version, cancellationToken);
+            return;
+        }
+
         int endpointId = _nextEndpointId++;
         bool useCompression = parameters.TryGetValue("endpoint.encoding", out var enc) && enc is string s && s.Equals("deflate", StringComparison.OrdinalIgnoreCase);
-        _endpointCompression[endpointId] = useCompression;
+        int protocolVersion = int.TryParse(version!.Split('.')[0], out var major) ? major : 0;
+        _endpoints[endpointId] = (useCompression, protocolVersion);
 
         _logger.LogInformation("Открытие эндпоинта: Service={Name}:{Version}, ID={Id}, Compression={Comp}", name, version, endpointId, useCompression);
 
         byte[] ackBytes = FormatEndpointOpenAck(name, version, endpointId, useCompression);
         await WriteFrameAsync(stream, (byte)SwpMessageType.EndpointOpenAck, ackBytes, cancellationToken);
+    }
+
+    /// <summary>
+    /// Формат отказа неоткрытого сервиса — как у реального RAS:
+    /// swp.Endpoint («Mount point error») с cause v8.service.UnsupportedService
+    /// и списком supported=... (по нему клиентский negotiation ограничивает перебор).
+    /// </summary>
+    private async Task RejectUnsupportedServiceAsync(Stream stream, string? name, string? version, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Отказ в открытии эндпоинта: Service={Name}:{Version}", name, version);
+
+        string supportedList = string.Join(",", _supportedAdminVersions);
+
+        var inner = new RasRemoteException(
+            "v8.service.UnsupportedService",
+            $"Service is not supported [name='{name}', version='{version}', supported={supportedList}]",
+            Array.Empty<RasRemoteStackFrame>());
+        var outer = new RasRemoteException("swp.Endpoint", "Mount point error", Array.Empty<RasRemoteStackFrame>(), inner);
+
+        var failureBuffer = new ArrayBufferWriter<byte>();
+        var failureWriter = new RasWriter(failureBuffer);
+        failureWriter.WriteString(name);
+        failureWriter.WriteString(version);
+        failureWriter.WriteNullableSize(null);
+        RasThrowableSerializer.WriteThrowable(ref failureWriter, outer);
+
+        await WriteFrameAsync(stream, (byte)SwpMessageType.EndpointFailure, failureBuffer.WrittenMemory.ToArray(), cancellationToken);
     }
 
     private static (string? Name, string? Version, Dictionary<string, object?> Parameters) ParseEndpointOpen(byte[] payload)
@@ -160,9 +212,10 @@ public sealed class ClientSession
 
         _logger.LogInformation("EndpointMessage для ID={Id}, format={Format}, bodyLen={Len}", endpointId, format, body.Length);
 
-        byte[] responseBody = GenerateApiResponse(body);
+        int responseVersion = _endpoints.TryGetValue(endpointId.Value, out var ep) ? ep.Version : 0;
+        byte[] responseBody = GenerateApiResponse(body, responseVersion);
 
-        bool useCompression = _endpointCompression.TryGetValue(endpointId.Value, out var comp) && comp;
+        bool useCompression = _endpoints.TryGetValue(endpointId.Value, out var endpoint) && endpoint.Compression;
         short responseFormat = 0;
         if (useCompression && responseBody.Length > 0 && responseBody[0] != 0x00)
         {
@@ -174,7 +227,7 @@ public sealed class ClientSession
         await WriteFrameAsync(stream, (byte)SwpMessageType.EndpointMessage, responseFrame, cancellationToken);
     }
 
-    private static byte[] GenerateApiResponse(byte[] body)
+    private byte[] GenerateApiResponse(byte[] body, int protocolVersion)
     {
         if (body.Length == 0) return new byte[] { 0x00 };
 
@@ -185,6 +238,11 @@ public sealed class ClientSession
         }
 
         var reqType = (MessageType)body[1];
+
+        if (NeedsClusterAuth(reqType) && !_clusterAuthenticated)
+        {
+            return CreateRightsExceptionBody();
+        }
 
         var respBuffer = new ArrayBufferWriter<byte>();
         var respWriter = new RasWriter(respBuffer);
@@ -206,7 +264,7 @@ public sealed class ClientSession
                             Port = 1541
                         }
                     }
-                }.Serialize(ref respWriter);
+                }.Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetSessionsRequest:
@@ -226,7 +284,7 @@ public sealed class ClientSession
                             LastActiveAt = DateTime.UtcNow
                         }
                     }
-                }.Serialize(ref respWriter);
+                }.Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetWorkingProcessesRequest:
@@ -245,7 +303,7 @@ public sealed class ClientSession
                             Enable = true
                         }
                     }
-                }.Serialize(ref respWriter);
+                }.Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetConnectionsShortRequest:
@@ -264,7 +322,7 @@ public sealed class ClientSession
                             SessionId = 1
                         }
                     }
-                }.Serialize(ref respWriter);
+                }.Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetLocksRequest:
@@ -285,7 +343,7 @@ public sealed class ClientSession
                             SessionId = Guid.NewGuid()
                         }
                     }
-                }.Serialize(ref respWriter);
+                }.Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetInfoBasesShortRequest:
@@ -301,17 +359,20 @@ public sealed class ClientSession
                             Descr = "Mock Infobase"
                         }
                     }
-                }.Serialize(ref respWriter);
+                }.Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetAgentVersionRequest:
                 respWriter.WriteByte((byte)MessageType.GetAgentVersionResponse);
-                new GetAgentVersionResponse { Version = "8.3.24.1342" }.Serialize(ref respWriter);
+                new GetAgentVersionResponse { Version = "8.3.24.1342" }.Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
-            case MessageType.AuthenticateAgentRequest:
             case MessageType.AuthenticateRequest:
             case MessageType.AddAuthenticationRequest:
+                _clusterAuthenticated = true;
+                return new byte[] { 0x00 }; // VOID
+
+            case MessageType.AuthenticateAgentRequest:
             case MessageType.TerminateSessionRequest:
             case MessageType.DisconnectRequest:
                 return new byte[] { 0x00 }; // VOID
@@ -320,6 +381,42 @@ public sealed class ClientSession
                 // Echo fallback
                 return body;
         }
+    }
+
+    private static bool NeedsClusterAuth(MessageType type) => type switch
+    {
+        MessageType.GetSessionsRequest or
+        MessageType.GetInfoBaseSessionsRequest or
+        MessageType.GetSessionInfoRequest or
+        MessageType.TerminateSessionRequest or
+        MessageType.GetWorkingProcessesRequest or
+        MessageType.GetWorkingProcessInfoRequest or
+        MessageType.GetServerWorkingProcessesRequest or
+        MessageType.GetConnectionsShortRequest or
+        MessageType.GetInfoBaseConnectionsShortRequest or
+        MessageType.GetConnectionInfoShortRequest or
+        MessageType.GetInfoBaseConnectionsRequest or
+        MessageType.DisconnectRequest or
+        MessageType.GetLocksRequest or
+        MessageType.GetInfoBaseLocksRequest or
+        MessageType.GetConnectionLocksRequest or
+        MessageType.GetSessionLocksRequest or
+        MessageType.GetWorkingServersRequest or
+        MessageType.GetWorkingServerInfoRequest or
+        MessageType.GetClusterManagersRequest or
+        MessageType.GetClusterManagerInfoRequest or
+        MessageType.GetClusterServicesRequest => true,
+        _ => false
+    };
+
+    private static byte[] CreateRightsExceptionBody()
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        var writer = new RasWriter(buffer);
+        writer.WriteByte(0xFF); // EndpointDataType.EXCEPTION
+        var rights = new RasRemoteException(RightsDeniedClass, RightsDeniedMessage, Array.Empty<RasRemoteStackFrame>());
+        RasThrowableSerializer.WriteThrowable(ref writer, rights);
+        return buffer.WrittenSpan.ToArray();
     }
 
     private static (int? EndpointId, short Format, byte[] Body) ParseEndpointMessage(byte[] payload)
@@ -349,7 +446,7 @@ public sealed class ClientSession
         int? endpointId = reader.ReadEndpointId();
         if (endpointId is not null)
         {
-            _endpointCompression.Remove(endpointId.Value);
+            _endpoints.Remove(endpointId.Value);
             _logger.LogInformation("Эндпоинт {Id} закрыт клиентом", endpointId);
         }
     }

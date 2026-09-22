@@ -37,6 +37,11 @@ public sealed class RasConnection : IAsyncDisposable
     private readonly Channel<SwpFrame> _unhandledFrames = Channel.CreateUnbounded<SwpFrame>();
 
     public TimeSpan KeepAliveTimeout { get; private set; } = TimeSpan.FromSeconds(20);
+
+    /// <summary>Параметры, полученные в ConnectAck (server.name, keep_alive.timeout и т.п.), до установки соединения — null.</summary>
+    public IReadOnlyDictionary<string, object?>? ConnectAckParameters { get; private set; }
+
+    
     
     public RasConnection(EndPoint remoteEndPoint, ILogger<RasConnection>? logger = null)
     {
@@ -49,13 +54,16 @@ public sealed class RasConnection : IAsyncDisposable
         _logger.LogInformation("Connecting to {EndPoint}...", _remoteEndPoint);
         
         _tcpClient = new TcpClient();
-        if (_remoteEndPoint is IPEndPoint ipEndPoint)
+        switch (_remoteEndPoint)
         {
-            await _tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port, cancellationToken);
-        }
-        else
-        {
-            await _tcpClient.ConnectAsync((IPEndPoint)_remoteEndPoint, cancellationToken);
+            case IPEndPoint ipEndPoint:
+                await _tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port, cancellationToken);
+                break;
+            case DnsEndPoint dnsEndPoint:
+                await _tcpClient.ConnectAsync(dnsEndPoint.Host, dnsEndPoint.Port, cancellationToken);
+                break;
+            default:
+                throw new NotSupportedException($"Не поддерживаемый тип EndPoint: {_remoteEndPoint.GetType().Name}");
         }
 
         _networkStream = _tcpClient.GetStream();
@@ -80,6 +88,12 @@ public sealed class RasConnection : IAsyncDisposable
         }
 
         var ackParams = ParseParameters(ackFrame.Payload);
+        ConnectAckParameters = ackParams;
+        foreach (var (key, value) in ackParams)
+        {
+            _logger.LogDebug("ConnectAck параметр: {Key} = {Value}", key, value);
+        }
+
         if (ackParams.TryGetValue("nipple.swp.connection.keep_alive.timeout", out var kaTimeoutObj) && kaTimeoutObj is string kaTimeoutStr && int.TryParse(kaTimeoutStr, out var kaTimeoutSecs))
         {
             KeepAliveTimeout = TimeSpan.FromSeconds(kaTimeoutSecs);

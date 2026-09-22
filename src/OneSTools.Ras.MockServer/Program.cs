@@ -35,11 +35,12 @@ public static class Program
         ILogger logger = loggerFactory.CreateLogger("MockRas");
 
         int port = args.Length > 0 && int.TryParse(args[0], out int parsed) ? parsed : DefaultPort;
+        int maxAdminVersion = args.Length > 1 && int.TryParse(args[1], out int parsedMax) ? parsedMax : 14;
 
         using var listener = new TcpListener(IPAddress.Any, port);
         listener.Start();
 
-        logger.LogInformation("Mock-RAS запущен на 0.0.0.0:{Port} (ожидается magic {Magic})", port, 475223888);
+        logger.LogInformation("Mock-RAS запущен на 0.0.0.0:{Port} (ожидается magic {Magic}), {Service} версии 3.0..{Max}.0", port, 475223888, ClientSession.AdminServiceName, maxAdminVersion);
 
         try
         {
@@ -47,7 +48,7 @@ public static class Program
             {
                 TcpClient client = await listener.AcceptTcpClientAsync(cancellationToken);
                 logger.LogInformation("Новое подключение: {Endpoint}", client.Client.RemoteEndPoint);
-                _ = HandleClientAsync(client, logger, cancellationToken);
+                _ = HandleClientAsync(client, logger, maxAdminVersion, cancellationToken);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -60,11 +61,11 @@ public static class Program
         }
     }
 
-    private static async Task HandleClientAsync(TcpClient client, ILogger logger, CancellationToken cancellationToken)
+    private static async Task HandleClientAsync(TcpClient client, ILogger logger, int maxAdminVersion, CancellationToken cancellationToken)
     {
         try
         {
-            await new ClientSession(client, logger).RunAsync(cancellationToken);
+            await new ClientSession(client, logger, maxAdminVersion).RunAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

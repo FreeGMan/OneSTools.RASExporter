@@ -29,7 +29,7 @@ public sealed class RealRasProtocolTests
     private const string AdminServiceName = "v8.service.Admin.Cluster";
     private static readonly string[] CandidateVersions = { "12.0", "11.0", "10.0", "9.0", "8.0", "7.0", "6.0", "5.0", "4.0", "3.0" };
 
-    private static readonly string Host = Environment.GetEnvironmentVariable("RAC_TEST_RAS_HOST") ?? "ras";
+    private static readonly string Host = Environment.GetEnvironmentVariable("RAC_TEST_RAS_HOST") ?? "1c-test-server";
     private static readonly int Port = int.Parse(Environment.GetEnvironmentVariable("RAC_TEST_RAS_PORT") ?? "1545");
 
     private static bool ServerReachable()
@@ -140,7 +140,7 @@ public sealed class RealRasProtocolTests
     }
 
     [SkippableFact]
-    public async Task GetClusters_Without_Ragent_Decodes_Remote_Exception()
+    public async Task GetClusters_Roundtrip_With_Real_Ragent_Or_Decoded_Exception()
     {
         Skip.IfNot(ServerReachable(), $"RAS недоступен на {Host}:{Port}");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -154,6 +154,11 @@ public sealed class RealRasProtocolTests
             {
                 var clusters = await endpoint.ExecuteAsync(new GetClustersRequest(), protoVersion, cts.Token);
                 Assert.NotNull(clusters.Clusters);
+                foreach (var c in clusters.Clusters)
+                {
+                    Assert.NotEqual(Guid.Empty, c.Uuid);
+                    Assert.False(string.IsNullOrWhiteSpace(c.Host));
+                }
             }
             catch (RasRemoteException ex)
             {
@@ -165,7 +170,7 @@ public sealed class RealRasProtocolTests
     }
 
     [SkippableFact]
-    public async Task AuthenticateAgent_Without_Ragent_Fails_Cleanly()
+    public async Task AuthenticateAgent_With_Bad_Credentials_Fails_Cleanly()
     {
         Skip.IfNot(ServerReachable(), $"RAS недоступен на {Host}:{Port}");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
