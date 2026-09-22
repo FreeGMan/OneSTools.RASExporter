@@ -135,21 +135,40 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
         }
     }
 
+    private int _disposeState; // 0 = жив, 1 = dispose запрошен, 2 = завершён
+
     public async ValueTask DisposeAsync()
     {
-        _channel.Writer.TryComplete();
-        _cts.Cancel();
-        if (_processingTask is not null)
+        if (Interlocked.CompareExchange(ref _disposeState, 1, 0) != 0)
         {
-            try
+            // Повторный dispose: ждём завершения первого.
+            while (Volatile.Read(ref _disposeState) != 2)
             {
-                await _processingTask;
+                await Task.Delay(10).ConfigureAwait(false);
             }
-            catch
+            return;
+        }
+
+        try
+        {
+            _channel.Writer.TryComplete();
+            _cts.Cancel();
+            if (_processingTask is not null)
             {
-                // Ignore during dispose
+                try
+                {
+                    await _processingTask;
+                }
+                catch
+                {
+                    // Ignore during dispose
+                }
             }
         }
-        _cts.Dispose();
+        finally
+        {
+            _cts.Dispose();
+            Volatile.Write(ref _disposeState, 2);
+        }
     }
 }

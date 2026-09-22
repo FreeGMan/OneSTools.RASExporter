@@ -114,8 +114,13 @@ public sealed class MetricsBatchingPipeline : IAsyncDisposable
         }
     }
 
+    private int _disposed;
+
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
+
         await _summaryProcessor.DisposeAsync();
         await _sessionProcessor.DisposeAsync();
         await _processProcessor.DisposeAsync();

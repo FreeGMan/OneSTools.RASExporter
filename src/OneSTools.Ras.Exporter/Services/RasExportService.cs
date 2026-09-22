@@ -106,17 +106,17 @@ public sealed class RasExportService : BackgroundService
 
                 foreach (var (clusterId, clusterName, user, password) in targetClusters)
                 {
-                    if (!string.IsNullOrEmpty(user))
+                    // Реальный RAS требует явный authenticateCluster даже для кластеров
+                    // без аутентификации (пустые учётки = анонимный вход). Без него
+                    // GetSessions/GetWorkingProcesses/... отваливаются с #Rights (см. TODO.md п.8).
+                    try
                     {
-                        try
-                        {
-                            await client.AuthenticateClusterAsync(clusterId, user, password ?? string.Empty, stoppingToken);
-                        }
-                        catch (Exception ex)
-                        {
-                            serverLogger.LogError(ex, "Ошибка аутентификации в кластере {ClusterName} ({ClusterId})", clusterName, clusterId);
-                            continue;
-                        }
+                        await client.AuthenticateClusterAsync(clusterId, user ?? string.Empty, password ?? string.Empty, stoppingToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        serverLogger.LogError(ex, "Ошибка аутентификации в кластере {ClusterName} ({ClusterId})", clusterName, clusterId);
+                        continue;
                     }
 
                     var worker = new ClusterMetricsWorker(
