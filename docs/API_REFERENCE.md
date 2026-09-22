@@ -35,6 +35,8 @@ void shutdown();
 
 **Реализация:** `AgentAdminConnector`
 - `connect()` устанавливает `IV8Connection`, создаёт `AdministrationServiceManager` с кодировкой `"deflate"`, получает прокси `IAgentAdminConnection`.
+  Wire-сервис: `v8.service.Admin.Cluster` (не FQN интерфейса!), версии negotiates `3.0…10.0` по списку Java SDK;
+  живой RAS 8.3.25.1520 принимает `3.0…14.0` (см. TRANSPORT_SPEC §7.2, подтверждено стендом 2026-09-22).
 - `close()` вызывает `stop()` на внутреннем `IV8Connection`.
 - `shutdown()` закрывает все соединения и отменяет внутренний `Timer`.
 

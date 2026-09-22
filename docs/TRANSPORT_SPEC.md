@@ -264,6 +264,25 @@ Handshake на стороне клиента (из `ClientProtocolHandler.handsh
 - `IServiceWireFuture` (connect / sasl / open) — keyed в `ClientProtocolHandler` (connectFuture,
   startTlsFuture), на 1 соединение 1 handshake.
 
+### 7.2 Имя и версии сервиса администрирования (подтверждено на живом RAS 8.3.25.1520, 2026-09-22)
+
+- Wire-имя сервиса: **`v8.service.Admin.Cluster`** (Java SDK: `AgentAdminConnectionProxy.SERVICE_NAME`,
+  `reference/decompiled/java-src/com/_1c/v8/ibis/internal/admin/AgentAdminConnectionProxy.java:174`).
+  FQN `com.1c.v8.ibis.admin.IAgentAdminConnection` — имя Java-интерфейса, сервер его **не** знает
+  (ответ `v8.service.UnsupportedService`).
+- Версии: сервер 8.3.25.1520 принимает `3.0 … 14.0` (Java SDK перебирает `3.0…10.0` — список устарел).
+- Отказ по версии содержит поддерживаемый список в тексте throwable:
+  `Service is not supported [name='…', version='…', supported=14.0,13.0,…,3.0]` — клиентский
+  negotiation ограничен этим множеством (аналог `V8Connection.detectSupportedVersions`).
+- Outer throwable отказа открытия: `swp.Endpoint` («Mount point error» / «Ошибка точки подключения» —
+  локализуется сервером), cause — `v8.service.UnsupportedService`.
+- Формат EndpointFailure на проводе: `[string name][string version][nullable endpointId][throwable]`
+  (клиент сопоставляет отказ по name+version, endpointId при отказе открытия не используется).
+- Вызовы просмотра кластера (`getSessions/getWorkingProcesses/getWorkingServers/getClusterManagers/
+  getLocks/…`) требуют предварительного `authenticateCluster` **даже для кластера без аутентификации**
+  (пустые учётки допустимы); иначе `v8.service.Admin.Cluster#Rights`. `getClusters/getClusterInfo/
+  getInfoBases` работают без аутентификации. Источник: проба стендом `1c-test-server` 2026-09-22.
+
 ## 8. Keep-alive
 
 - `KeepAliveMessage` (16) — пустое тело.
