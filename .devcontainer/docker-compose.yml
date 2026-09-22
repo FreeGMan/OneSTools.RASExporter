@@ -21,7 +21,7 @@ services:
     command: sleep infinity
     depends_on:
       - clickhouse
-      # - mock-ras
+      - mock-ras
       - ras
 
   # ClickHouse для разработки схем и интеграционных тестов
@@ -43,13 +43,13 @@ services:
 
   # Эмулятор RAS-сервера (SWP handshake). Заменяется реальным RAS 1С
   # изменением Host в appsettings.json.
-  # mock-ras:
-  #   build:
-  #     context: ..
-  #     dockerfile: .devcontainer/mock-ras/Dockerfile
-  #   ports:
-  #     - "1545:1545"
-  #   restart: unless-stopped
+  mock-ras:
+    build:
+      context: ..
+      dockerfile: .devcontainer/mock-ras/Dockerfile
+    ports:
+      - "1545:1545"
+    restart: unless-stopped
 
   # Реальный RAS-сервер "1С:Предприятие 8.3" (прокси к агенту кластера ragent).
   # Собрано из минимального набора файлов платформы: ras-minimal/Dockerfile.
