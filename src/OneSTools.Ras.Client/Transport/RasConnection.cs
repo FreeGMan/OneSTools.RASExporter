@@ -539,6 +539,29 @@ public sealed class RasConnection : IAsyncDisposable
         return RasParametersSerializer.ReadParameters(ref reader);
     }
 
+    /// <summary>
+    /// Жёсткий разрыв TCP (RST) без protocol-level закрытия — только для хаос/нагрузочных тестов
+    /// проверки устойчивости сервера к «неправильным» клиентам.
+    /// </summary>
+    public void Abort()
+    {
+        _connectionCts.Cancel();
+        _reader?.Complete();
+        _writer?.Complete();
+        try
+        {
+            if (_tcpClient?.Client is { Connected: true } socket)
+            {
+                try { socket.LingerState = new System.Net.Sockets.LingerOption(true, 0); }
+                catch (SocketException) { /* сокет умирает — нормально */ }
+            }
+            _networkStream?.Dispose();
+            _tcpClient?.Dispose();
+        }
+        catch (SocketException) { /* сокет уже мёртв */ }
+        catch (ObjectDisposedException) { /* соединение уже закрыто (read-loop) */ }
+    }
+
     public async ValueTask DisposeAsync()
     {
         _connectionCts.Cancel();
