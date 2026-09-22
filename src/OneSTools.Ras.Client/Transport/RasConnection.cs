@@ -36,10 +36,19 @@ public sealed class RasConnection : IAsyncDisposable
 
     private readonly Channel<SwpFrame> _unhandledFrames = Channel.CreateUnbounded<SwpFrame>();
 
+    // PipeWriter не потокобезопасен: все записи фреймов (эндпоинты, keep-alive, close)
+    // сериализуются этим гейтом.
+    private readonly SemaphoreSlim _writeGate = new(1, 1);
+
     public TimeSpan KeepAliveTimeout { get; private set; } = TimeSpan.FromSeconds(20);
 
     /// <summary>Параметры, полученные в ConnectAck (server.name, keep_alive.timeout и т.п.), до установки соединения — null.</summary>
     public IReadOnlyDictionary<string, object?>? ConnectAckParameters { get; private set; }
+
+    private int _closed;
+
+    /// <summary>Соединение закрыто/смертельно (сокет умер, Dispose/Abort вызван). Повторно использовать нельзя.</summary>
+    public bool IsClosed => Volatile.Read(ref _closed) != 0;
 
     
     
@@ -164,6 +173,7 @@ public sealed class RasConnection : IAsyncDisposable
             throw new InvalidOperationException($"A request is already pending on endpoint {endpointId}");
         }
 
+        bool sent = false;
         try
         {
             // 1. Build endpoint body: [0x01 (MESSAGE)][payload]
@@ -190,6 +200,7 @@ public sealed class RasConnection : IAsyncDisposable
 
             // 3. Send frame
             await WriteFrameAsync((byte)SwpMessageType.EndpointMessage, frameBodyWriter.WrittenMemory, cancellationToken);
+            sent = true;
 
             using var reg = cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken));
             return await tcs.Task;
@@ -197,6 +208,15 @@ public sealed class RasConnection : IAsyncDisposable
         catch
         {
             _pendingRequests.TryRemove(endpointId, out _);
+            // Опасен только отменённый ПОСЛЕ отправки запрос: ответ сервера станет «осиротевшим»
+            // и будет ошибочно принят за следующий. Faulted tcs (серверная ошибка) или обрыв —
+            // нормальные исходы, рассинхрона нет.
+            if (sent && tcs.Task.IsCanceled)
+            {
+                Volatile.Write(ref _closed, 1);
+                FailAllPending(new RasException("Запрос отменён после отправки — соединение закрыто во избежание рассинхронизации"));
+                DisposeAsynchronously();
+            }
             throw;
         }
     }
@@ -229,22 +249,30 @@ public sealed class RasConnection : IAsyncDisposable
     {
         if (_writer is null) throw new InvalidOperationException("Not connected");
 
-        var headerWriter = new ArrayBufferWriter<byte>(10);
-        var writer = new RasWriter(headerWriter);
-        writer.WriteByte(type);
-        writer.WriteSize(payload.Length);
-
-        var headerMem = headerWriter.WrittenMemory;
-        
-        var memory = _writer.GetMemory(headerMem.Length + payload.Length);
-        headerMem.CopyTo(memory);
-        payload.CopyTo(memory.Slice(headerMem.Length));
-        _writer.Advance(headerMem.Length + payload.Length);
-        
-        var result = await _writer.FlushAsync(cancellationToken);
-        if (result.IsCompleted || result.IsCanceled)
+        await _writeGate.WaitAsync(cancellationToken);
+        try
         {
-            throw new IOException("Connection closed during write");
+            var headerWriter = new ArrayBufferWriter<byte>(10);
+            var writer = new RasWriter(headerWriter);
+            writer.WriteByte(type);
+            writer.WriteSize(payload.Length);
+
+            var headerMem = headerWriter.WrittenMemory;
+
+            var memory = _writer.GetMemory(headerMem.Length + payload.Length);
+            headerMem.CopyTo(memory);
+            payload.CopyTo(memory.Slice(headerMem.Length));
+            _writer.Advance(headerMem.Length + payload.Length);
+
+            var result = await _writer.FlushAsync(cancellationToken);
+            if (result.IsCompleted || result.IsCanceled)
+            {
+                throw new IOException("Connection closed during write");
+            }
+        }
+        finally
+        {
+            _writeGate.Release();
         }
     }
 
@@ -307,6 +335,7 @@ public sealed class RasConnection : IAsyncDisposable
         }
         finally
         {
+            Volatile.Write(ref _closed, 1);
             _unhandledFrames.Writer.TryComplete();
             FailAllPending(new EndOfStreamException("Connection closed"));
             await DisposeAsync();
@@ -545,6 +574,7 @@ public sealed class RasConnection : IAsyncDisposable
     /// </summary>
     public void Abort()
     {
+        Volatile.Write(ref _closed, 1);
         _connectionCts.Cancel();
         _reader?.Complete();
         _writer?.Complete();
@@ -562,14 +592,21 @@ public sealed class RasConnection : IAsyncDisposable
         catch (ObjectDisposedException) { /* соединение уже закрыто (read-loop) */ }
     }
 
+    private void DisposeAsynchronously()
+        => _ = Task.Run(async () =>
+        {
+            try { await DisposeAsync(); } catch { /* best effort */ }
+        });
+
     public async ValueTask DisposeAsync()
     {
-        _connectionCts.Cancel();
+        Volatile.Write(ref _closed, 1);
+        try { _connectionCts.Cancel(); } catch (ObjectDisposedException) { }
 
         _reader?.Complete();
         _writer?.Complete();
-        _networkStream?.Dispose();
-        _tcpClient?.Dispose();
+        try { _networkStream?.Dispose(); } catch (ObjectDisposedException) { }
+        try { _tcpClient?.Dispose(); } catch (ObjectDisposedException) { }
         
         if (_readLoopTask is not null)
         {
@@ -580,7 +617,7 @@ public sealed class RasConnection : IAsyncDisposable
             try { await Task.WhenAny(_keepAliveTask, Task.Delay(500)); } catch { }
         }
 
-        _connectionCts.Dispose();
+        try { _connectionCts.Dispose(); } catch (ObjectDisposedException) { }
     }
 }
 

@@ -12,6 +12,10 @@ namespace OneSTools.Ras.Client.Transport;
 /// </summary>
 public sealed class RasEndpoint : IAsyncDisposable
 {
+    // SWP-эндпоинт последовательный (1 ожидающий ответ). Серийный гейт делает ExecuteAsync/
+    // ExecuteVoidAsync потокобезопасными: конкурентные вызовы выстраиваются в очередь.
+    private readonly SemaphoreSlim _callGate = new(1, 1);
+
     public int EndpointId { get; }
     public ServiceId ServiceId { get; }
     public RasConnection Connection { get; }
@@ -40,7 +44,16 @@ public sealed class RasEndpoint : IAsyncDisposable
         where TResponse : IRasResponse<TResponse>
     {
         byte[] requestBytes = FormatRequest(request, protocolVersion);
-        byte[] responseBytes = await SendMessageAsync(requestBytes, cancellationToken);
+        await _callGate.WaitAsync(cancellationToken);
+        byte[] responseBytes;
+        try
+        {
+            responseBytes = await SendMessageAsync(requestBytes, cancellationToken);
+        }
+        finally
+        {
+            _callGate.Release();
+        }
         return ParseResponse<TResponse>(responseBytes, protocolVersion);
     }
 
@@ -50,7 +63,15 @@ public sealed class RasEndpoint : IAsyncDisposable
     public async Task ExecuteVoidAsync(IRasVoidRequest request, int protocolVersion = 0, CancellationToken cancellationToken = default)
     {
         byte[] requestBytes = FormatVoidRequest(request, protocolVersion);
-        await SendMessageAsync(requestBytes, cancellationToken);
+        await _callGate.WaitAsync(cancellationToken);
+        try
+        {
+            await SendMessageAsync(requestBytes, cancellationToken);
+        }
+        finally
+        {
+            _callGate.Release();
+        }
     }
 
     private static byte[] FormatRequest<TResponse>(IRasRequest<TResponse> request, int protocolVersion)
@@ -104,6 +125,7 @@ public sealed class RasEndpoint : IAsyncDisposable
         {
             // Ignore on dispose
         }
+        _callGate.Dispose();
     }
 
     public override string ToString() => $"RasEndpoint(Id={EndpointId}, Service={ServiceId}, Compression={UseCompression})";

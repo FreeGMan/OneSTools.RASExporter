@@ -104,6 +104,22 @@ public sealed class MockServerFidelityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Concurrent_Calls_On_One_Client_Are_Serialized_By_Endpoint_Gate()
+    {
+        await using var client = new RasAdminClient("localhost", _fullPort, NullLogger<RasAdminClient>.Instance);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await client.ConnectAsync(cancellationToken: cts.Token);
+
+        var clusters = await client.GetClustersAsync(cts.Token);
+        var clusterId = clusters[0].Uuid;
+        await client.AuthenticateClusterAsync(clusterId, "", "", cts.Token);
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 10).Select(_ => client.GetSessionsAsync(clusterId, cts.Token)));
+
+        Assert.All(results, r => Assert.Single(r));
+    }
+
+    [Fact]
     public async Task Cluster_Queries_Without_Authentication_Get_Rights_Exception()
     {
         await using var client = new RasAdminClient("localhost", _fullPort, NullLogger<RasAdminClient>.Instance);
