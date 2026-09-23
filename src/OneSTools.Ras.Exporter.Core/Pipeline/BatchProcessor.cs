@@ -162,6 +162,9 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
             }
             catch (Exception ex) when (attempt < attempts)
             {
+                // первый же сбой закрывает гейт: коллекторы встают на паузу, не дожидаясь
+                // исчерпания попыток (меньше потерянных данных)
+                _availabilityCallback?.Invoke(false);
                 _logger.LogWarning(ex, "Попытка {Attempt}/{Total} записи батча ({Count} эл.) {Type} не удалась, повтор...",
                     attempt, attempts, buffer.Count, typeof(TItem).Name);
                 await Task.Delay(TimeSpan.FromSeconds(attempt), CancellationToken.None);
