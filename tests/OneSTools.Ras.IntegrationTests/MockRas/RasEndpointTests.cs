@@ -68,10 +68,12 @@ public sealed class RasEndpointTests : IAsyncLifetime
         Assert.Equal(serviceId, endpoint.ServiceId);
         Assert.True(endpoint.UseCompression);
 
-        byte[] request = Encoding.UTF8.GetBytes("hello compressed echo payload 12345");
+        // реальный запрос через транспортно-сжатый эндпоинт: [135 GetAgentVersionRequest]
+        byte[] request = new byte[] { (byte)OneSTools.Ras.Client.Messages.MessageType.GetAgentVersionRequest };
         byte[] response = await endpoint.SendMessageAsync(request, cts.Token);
 
-        Assert.Equal(request, response);
+        Assert.True(response.Length > 1);
+        Assert.Equal((byte)OneSTools.Ras.Client.Messages.MessageType.GetAgentVersionResponse, response[0]);
 
         await endpoint.CloseAsync(cts.Token);
     }
@@ -95,10 +97,11 @@ public sealed class RasEndpointTests : IAsyncLifetime
         Assert.Equal(serviceId, endpoint.ServiceId);
         Assert.False(endpoint.UseCompression);
 
-        byte[] request = Encoding.UTF8.GetBytes("hello uncompressed echo payload 67890");
+        byte[] request = new byte[] { (byte)OneSTools.Ras.Client.Messages.MessageType.GetAgentVersionRequest };
         byte[] response = await endpoint.SendMessageAsync(request, cts.Token);
 
-        Assert.Equal(request, response);
+        Assert.True(response.Length > 1);
+        Assert.Equal((byte)OneSTools.Ras.Client.Messages.MessageType.GetAgentVersionResponse, response[0]);
 
         await endpoint.CloseAsync(cts.Token);
     }

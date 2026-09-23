@@ -304,6 +304,173 @@ public sealed class Scenarios(Options options)
         });
     }
 
+/// <summary>
+    /// Хаос-стрим: одновременно мониторинг (2 клиента, жёсткий per-request таймаут как детектор
+    /// дедлоков), churn с RST-обрывами и волны «connect→запрос→штатный close».
+    /// Любой unexpected-ошибка/таймаут → код возврата ≠ 0.
+    /// </summary>
+    public async Task<PhaseResult> ChaosMixedAsync(Guid clusterId, CancellationToken ct)
+    {
+        var sets = new Dictionary<string, SampleSet>
+        {
+            ["monitor"] = new("monitor"),
+            ["churn"] = new("churn"),
+            ["wave"] = new("wave")
+        };
+
+        using var phase = new CancellationTokenSource(TimeSpan.FromSeconds(_options.DurationSeconds));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, phase.Token);
+
+        var monitor = Task.Run(async () =>
+        {
+            var sw = new Stopwatch();
+            while (!linked.IsCancellationRequested)
+            {
+                RasAdminClient? client = null;
+                try
+                {
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                    using var perOp = CancellationTokenSource.CreateLinkedTokenSource(linked.Token, timeout.Token);
+
+                    client = new RasAdminClient(_options.Host, _options.Port, Microsoft.Extensions.Logging.Abstractions.NullLogger<RasAdminClient>.Instance);
+                    sw.Restart();
+                    await client.ConnectAsync(cancellationToken: perOp.Token);
+                    await client.AuthenticateClusterAsync(clusterId, "", "", perOp.Token);
+                    sets["monitor"].RecordLatency(sw.Elapsed.TotalMilliseconds);
+
+                    while (!linked.IsCancellationRequested)
+                    {
+                        using var qto = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        using var q = CancellationTokenSource.CreateLinkedTokenSource(linked.Token, qto.Token);
+                        sw.Restart();
+                        _ = await client.GetSessionsAsync(clusterId, q.Token);
+                        _ = await client.GetWorkingProcessesAsync(clusterId, q.Token);
+                        _ = await client.GetLocksAsync(clusterId, q.Token);
+                        sets["monitor"].RecordLatency(sw.Elapsed.TotalMilliseconds);
+                        await Task.Delay(TimeSpan.FromSeconds(2), q.Token);
+                    }
+                }
+                catch (OperationCanceledException) when (linked.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    sets["monitor"].RecordError(ex);
+                    await Task.Delay(TimeSpan.FromSeconds(2), CancellationToken.None);
+                }
+                finally
+                {
+                    if (client is not null) await client.DisposeAsync();
+                }
+            }
+        }, CancellationToken.None);
+
+        var churn = Task.Run(async () =>
+        {
+            var sw = new Stopwatch();
+            var inner = CancellationTokenSource.CreateLinkedTokenSource(linked.Token);
+            inner.CancelAfter(TimeSpan.FromSeconds(_options.DurationSeconds));
+            try
+            {
+                while (!inner.IsCancellationRequested)
+                {
+                    sw.Restart();
+                    var conn = new RasConnection(new DnsEndPoint(_options.Host, _options.Port));
+                    try
+                    {
+                        await conn.ConnectAsync(new Dictionary<string, object?> { ["client.name"] = "loadsim-chaos-churn" }, inner.Token);
+                        var endpoint = await conn.OpenEndpointAsync(AdminService, cancellationToken: inner.Token);
+                        await endpoint.ExecuteAsync(new GetAgentVersionRequest(), AdminProtoVersion, inner.Token);
+                        sets["churn"].RecordLatency(sw.Elapsed.TotalMilliseconds);
+                    }
+                    catch (OperationCanceledException) when (inner.IsCancellationRequested)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        sets["churn"].RecordError(ex);
+                    }
+                    finally
+                    {
+                        conn.Abort(); // RST без protocol-close
+                    }
+                    await Task.Delay(Random.Shared.Next(10, 80), CancellationToken.None);
+                }
+            }
+            finally
+            {
+                inner.Dispose();
+            }
+        }, CancellationToken.None);
+
+        var waves = Task.Run(async () =>
+        {
+            var wave = 0;
+            while (!linked.IsCancellationRequested)
+            {
+                wave++;
+                using var hold = new CancellationTokenSource(TimeSpan.FromSeconds(Random.Shared.Next(3, 8)));
+                using var waveCts = CancellationTokenSource.CreateLinkedTokenSource(linked.Token, hold.Token);
+                var rampSets = new Dictionary<string, SampleSet>
+                {
+                    ["connect"] = new($"wave{wave}:connect"),
+                    ["open"] = new($"wave{wave}:open"),
+                    ["authenticate"] = new($"wave{wave}:auth"),
+                    ["getSessions"] = new($"wave{wave}:sessions")
+                };
+
+                var conns = Enumerable.Range(0, 8).Select(_ => RampClientAsync(rampSets, clusterId, waveCts.Token)).ToArray();
+                try
+                {
+                    await Task.WhenAll(conns);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+
+                foreach (var set in rampSets.Values)
+                {
+                    var sum = set.Summarize();
+                    sets["wave"].RecordLatency(sum.Count > 0 ? sum.P50Ms : 0);
+                    foreach (var (key, count) in sum.Errors)
+                        sets["wave"].RecordError($"[{sum.Name}] {count}× {key}");
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(2), CancellationToken.None);
+            }
+        }, CancellationToken.None);
+
+        try
+        {
+            await Task.WhenAll(monitor, churn, waves);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        Console.WriteLine("  chaos done, post-sanity 20s ...");
+        var summaries = sets.Values.Select(s => s.Summarize()).ToList();
+
+        using var sanityCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        sanityCts.CancelAfter(TimeSpan.FromSeconds(20));
+        var sets2 = NewStage1Sets();
+        try
+        {
+            await Task.WhenAll(Enumerable.Range(1, 3).Select(i => MonitoringClientLoopAsync($"sanity{i}", clusterId, sets2, sanityCts.Token)));
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        summaries.AddRange(sets2.Values.Select(s => s.Summarize()).Select(x => x with { Name = "sanity:" + x.Name }));
+
+        return new PhaseResult("chaos-mixed", summaries, new Dictionary<string, string>
+        {
+            ["durationSeconds"] = _options.DurationSeconds.ToString()
+        });
+    }
+
     public async Task<PhaseResult> NegotiationStormAsync(CancellationToken ct)
     {
         var sets = new Dictionary<string, SampleSet>

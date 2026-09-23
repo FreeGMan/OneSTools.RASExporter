@@ -120,6 +120,43 @@ public sealed class MockServerFidelityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Concurrent_Mixed_Operations_All_Succeed()
+    {
+        // Регресс на «эхо-фолбэк» мока: неохваченные операции (getClusterInfo, getInfoBases,
+        // servers, managers, admins…) возвращали эхо запроса, клиент ломался на мусоре.
+        await using var clientA = new RasAdminClient("localhost", _fullPort, NullLogger<RasAdminClient>.Instance);
+        await using var clientB = new RasAdminClient("localhost", _fullPort, NullLogger<RasAdminClient>.Instance);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+
+        await Task.WhenAll(clientA.ConnectAsync(cancellationToken: cts.Token), clientB.ConnectAsync(cancellationToken: cts.Token));
+        foreach (var c in new[] { clientA, clientB })
+            await c.AuthenticateClusterAsync(Guid.Parse("11111111-1111-1111-1111-111111111111"), "", "", cts.Token);
+
+        var rounds = new[] { clientA, clientB }.SelectMany(c => new Func<Task>[]
+        {
+            () => c.GetClustersAsync(cts.Token),
+            () => c.GetClusterInfoAsync(Guid.Parse("11111111-1111-1111-1111-111111111111"), cts.Token),
+            () => c.GetWorkingServersAsync(Guid.Parse("11111111-1111-1111-1111-111111111111"), cts.Token),
+            () => c.GetClusterManagersAsync(Guid.Parse("11111111-1111-1111-1111-111111111111"), cts.Token),
+            () => c.GetClusterServicesAsync(Guid.Parse("11111111-1111-1111-1111-111111111111"), cts.Token),
+            () => c.GetAgentAdminsAsync(cts.Token),
+            () => c.GetClusterAdminsAsync(Guid.Parse("11111111-1111-1111-1111-111111111111"), cts.Token),
+            () => c.GetSessionsAsync(Guid.Parse("11111111-1111-1111-1111-111111111111"), cts.Token),
+            () => c.GetInfoBasesAsync(Guid.Parse("11111111-1111-1111-1111-111111111111"), cts.Token),
+            () => c.GetWorkingProcessesAsync(Guid.Parse("11111111-1111-1111-1111-111111111111"), cts.Token),
+            () => c.GetLocksAsync(Guid.Parse("11111111-1111-1111-1111-111111111111"), cts.Token),
+            () => c.GetAgentVersionAsync(cts.Token),
+        }).ToList();
+
+        // перемешиваем порядок для двух клиентов
+        var tasksA = rounds.Where((_, i) => i % 2 == 0).Select(f => RunAndUnwrap(f)).ToArray();
+        var tasksB = rounds.Where((_, i) => i % 2 == 1).Select(f => RunAndUnwrap(f)).ToArray();
+        await Task.WhenAll(tasksA.Concat(tasksB));
+
+        static async Task RunAndUnwrap(Func<Task> f) => await f();
+    }
+
+    [Fact]
     public async Task Cluster_Queries_Without_Authentication_Get_Rights_Exception()
     {
         await using var client = new RasAdminClient("localhost", _fullPort, NullLogger<RasAdminClient>.Instance);

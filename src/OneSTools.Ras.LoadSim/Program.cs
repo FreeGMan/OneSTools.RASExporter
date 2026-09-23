@@ -63,6 +63,8 @@ if (mode is "all" or "ramp")
     await RunPhase("ramp", () => scenarios.RampConnectionsAsync(clusterId, cts.Token));
 if (mode is "all" or "churn")
     await RunPhase("churn", () => scenarios.ChurnSocketKillAsync(cts.Token));
+if (mode == "chaos")
+    await RunPhase("chaos", () => scenarios.ChaosMixedAsync(clusterId, cts.Token));
 if (mode is "all" or "negotiation")
     await RunPhase("negotiation", () => scenarios.NegotiationStormAsync(cts.Token));
 

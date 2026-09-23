@@ -34,6 +34,97 @@ public sealed class ClientSession
     private const string RightsDeniedClass = "v8.service.Admin.Cluster#Rights";
     private const string RightsDeniedMessage = "Insufficient user rights to manage the cluster Mock-Cluster-01";
 
+    private static readonly Guid MockClusterId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid MockInfobaseId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static readonly Guid MockServerId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+    private static readonly Guid MockManagerId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+    private static readonly Guid MockProcessId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+    private static readonly Guid MockSessionId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+
+    private static readonly ClusterInfo MockCluster = new()
+    {
+        Uuid = MockClusterId,
+        Name = "Mock-Cluster-01",
+        Host = "mock-server",
+        Port = 1541,
+        ExpirationTimeout = 20
+    };
+
+    private static readonly ProcessInfo MockProcess = new()
+    {
+        Uuid = MockProcessId,
+        Host = "mock-server",
+        Port = 1560,
+        Pid = "1001",
+        Running = true,
+        Enable = true,
+        StartedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+    };
+
+    private static readonly SessionInfo MockSession = new()
+    {
+        Uuid = MockSessionId,
+        AppId = "1CV8C",
+        UserName = "TestUser",
+        Id = 1,
+        StartedAt = DateTime.UtcNow.AddMinutes(-30),
+        LastActiveAt = DateTime.UtcNow
+    };
+
+    private static readonly ConnectionInfo MockConnection = new()
+    {
+        Uuid = Guid.Parse("88888888-8888-8888-8888-888888888888"),
+        Application = "1CV8C",
+        Host = "127.0.0.1",
+        Id = 101,
+        SessionId = 1
+    };
+
+    private static readonly LockInfo MockLock = new()
+    {
+        ConnectionId = MockConnection.Uuid,
+        Description = "Mock Lock",
+        LockedAt = DateTime.UtcNow,
+        ObjectId = Guid.Parse("99999999-9999-9999-9999-999999999999"),
+        SessionId = MockSessionId
+    };
+
+    private static readonly InfobaseSummaryInfo MockInfobaseSummary = new()
+    {
+        Uuid = MockInfobaseId,
+        Name = "mock_db",
+        Descr = "Mock Infobase"
+    };
+
+    private static readonly InfobaseInfo MockInfobase = new()
+    {
+        Uuid = MockInfobaseId,
+        Name = "mock_db",
+        Descr = "Mock Infobase",
+        DbServer = "mock-server",
+        SecurityLevel = 1
+    };
+
+    private static readonly ServerInfo MockServer = new()
+    {
+        Uuid = MockServerId,
+        AgentHost = "mock-server",
+        AgentPort = 1541,
+        Name = "mock-server",
+        MainServer = true,
+        ClusterPort = 1560
+    };
+
+    private static readonly ManagerInfo MockManager = new()
+    {
+        Uuid = MockManagerId,
+        Host = "mock-server",
+        Port = 1540,
+        Pid = "2001",
+        MainManager = 1,
+        Descr = "Mock manager"
+    };
+
     private readonly TcpClient _client;
     private readonly ILogger _logger;
     private readonly IReadOnlyList<string> _supportedAdminVersions;
@@ -252,77 +343,75 @@ public sealed class ClientSession
         {
             case MessageType.GetClustersRequest:
                 respWriter.WriteByte((byte)MessageType.GetClustersResponse);
-                new GetClustersResponse
-                {
-                    Clusters = new[]
-                    {
-                        new ClusterInfo
-                        {
-                            Uuid = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                            Name = "Mock-Cluster-01",
-                            Host = "mock-server",
-                            Port = 1541
-                        }
-                    }
-                }.Serialize(ref respWriter, protocolVersion);
+                new GetClustersResponse { Clusters = new[] { MockCluster } }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetClusterInfoRequest:
+                respWriter.WriteByte((byte)MessageType.GetClusterInfoResponse);
+                new GetClusterInfoResponse { Info = MockCluster }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetWorkingServersRequest:
+                respWriter.WriteByte((byte)MessageType.GetWorkingServersResponse);
+                new GetWorkingServersResponse { Servers = new[] { MockServer } }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetClusterManagersRequest:
+                respWriter.WriteByte((byte)MessageType.GetClusterManagersResponse);
+                new GetClusterManagersResponse { Managers = new[] { MockManager } }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetClusterServicesRequest:
+                respWriter.WriteByte((byte)MessageType.GetClusterServicesResponse);
+                new GetClusterServicesResponse { Services = Array.Empty<ServiceInfo>() }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetAgentAdminsRequest:
+                respWriter.WriteByte((byte)MessageType.GetAgentAdminsResponse);
+                new GetAgentAdminsResponse().Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetClusterAdminsRequest:
+                respWriter.WriteByte((byte)MessageType.GetClusterAdminsResponse);
+                new GetClusterAdminsResponse().Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetSessionsRequest:
             case MessageType.GetInfoBaseSessionsRequest:
                 respWriter.WriteByte((byte)MessageType.GetSessionsResponse);
-                new GetSessionsResponse
-                {
-                    Sessions = new[]
-                    {
-                        new SessionInfo
-                        {
-                            Uuid = Guid.NewGuid(),
-                            AppId = "1CV8C",
-                            UserName = "TestUser",
-                            Id = 1,
-                            StartedAt = DateTime.UtcNow.AddMinutes(-30),
-                            LastActiveAt = DateTime.UtcNow
-                        }
-                    }
-                }.Serialize(ref respWriter, protocolVersion);
+                new GetSessionsResponse { Sessions = new[] { MockSession } }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetSessionInfoRequest:
+                respWriter.WriteByte((byte)MessageType.GetSessionInfoResponse);
+                new GetSessionInfoResponse { Info = MockSession }
+                    .Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetWorkingProcessesRequest:
+            case MessageType.GetServerWorkingProcessesRequest:
                 respWriter.WriteByte((byte)MessageType.GetWorkingProcessesResponse);
-                new GetWorkingProcessesResponse
-                {
-                    Processes = new[]
-                    {
-                        new ProcessInfo
-                        {
-                            Uuid = Guid.NewGuid(),
-                            Host = "mock-server",
-                            Port = 1560,
-                            Pid = "1001",
-                            Running = true,
-                            Enable = true
-                        }
-                    }
-                }.Serialize(ref respWriter, protocolVersion);
+                new GetWorkingProcessesResponse { Processes = new[] { MockProcess } }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetWorkingProcessInfoRequest:
+                respWriter.WriteByte((byte)MessageType.GetWorkingProcessInfoResponse);
+                new GetWorkingProcessInfoResponse { Info = MockProcess }
+                    .Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetConnectionsShortRequest:
             case MessageType.GetInfoBaseConnectionsShortRequest:
                 respWriter.WriteByte((byte)MessageType.GetConnectionsShortResponse);
-                new GetConnectionsShortResponse
-                {
-                    Connections = new[]
-                    {
-                        new ConnectionInfo
-                        {
-                            Uuid = Guid.NewGuid(),
-                            Application = "1CV8C",
-                            Host = "127.0.0.1",
-                            Id = 101,
-                            SessionId = 1
-                        }
-                    }
-                }.Serialize(ref respWriter, protocolVersion);
+                new GetConnectionsShortResponse { Connections = new[] { MockConnection } }
+                    .Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetLocksRequest:
@@ -330,36 +419,26 @@ public sealed class ClientSession
             case MessageType.GetConnectionLocksRequest:
             case MessageType.GetSessionLocksRequest:
                 respWriter.WriteByte((byte)MessageType.GetLocksResponse);
-                new GetLocksResponse
-                {
-                    Locks = new[]
-                    {
-                        new LockInfo
-                        {
-                            ConnectionId = Guid.NewGuid(),
-                            Description = "Mock Lock",
-                            LockedAt = DateTime.UtcNow,
-                            ObjectId = Guid.NewGuid(),
-                            SessionId = Guid.NewGuid()
-                        }
-                    }
-                }.Serialize(ref respWriter, protocolVersion);
+                new GetLocksResponse { Locks = new[] { MockLock } }
+                    .Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetInfoBasesShortRequest:
                 respWriter.WriteByte((byte)MessageType.GetInfoBasesShortResponse);
-                new GetInfoBasesShortResponse
-                {
-                    InfoBases = new[]
-                    {
-                        new InfobaseSummaryInfo
-                        {
-                            Uuid = Guid.Parse("33333333-3333-3333-3333-333333333333"),
-                            Name = "mock_db",
-                            Descr = "Mock Infobase"
-                        }
-                    }
-                }.Serialize(ref respWriter, protocolVersion);
+                new GetInfoBasesShortResponse { InfoBases = new[] { MockInfobaseSummary } }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetInfoBasesRequest:
+                respWriter.WriteByte((byte)MessageType.GetInfoBasesResponse);
+                new GetInfoBasesResponse { InfoBases = new[] { MockInfobase } }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetInfoBaseInfoRequest:
+                respWriter.WriteByte((byte)MessageType.GetInfoBaseInfoResponse);
+                new GetInfoBaseInfoResponse { Info = MockInfobase }
+                    .Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetAgentVersionRequest:
@@ -378,9 +457,23 @@ public sealed class ClientSession
                 return new byte[] { 0x00 }; // VOID
 
             default:
-                // Echo fallback
-                return body;
+                return CreateNotSupportedBody(reqType);
         }
+    }
+
+    /// <summary>Отказ по неизвестной операции — EXCEPTION, а не эхо: «тихий» эхо-фолбэк
+    /// маскировал отсутствие обработчиков и ломал клиент шумом вместо внятной ошибки.</summary>
+    private static byte[] CreateNotSupportedBody(MessageType reqType)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        var writer = new RasWriter(buffer);
+        writer.WriteByte(0xFF); // EndpointDataType.EXCEPTION
+        var ex = new RasRemoteException(
+            "v8.service.UnsupportedService",
+            $"Operation is not supported by mock server [{reqType}]",
+            Array.Empty<RasRemoteStackFrame>());
+        RasThrowableSerializer.WriteThrowable(ref writer, ex);
+        return buffer.WrittenSpan.ToArray();
     }
 
     private static bool NeedsClusterAuth(MessageType type) => type switch
