@@ -77,8 +77,14 @@ public sealed class MetricsBatchingPipelineTests
             await pipeline.EnqueueLockAsync(new LockMetricItem(now, clusterId, "ClusterA", new LockInfo { Description = $"Lock_{i}" }));
         }
 
-        // Wait for timer flush
-        await Task.Delay(500);
+        // Ждём полный сброс всех четырёх потоков (без жёсткого Delay: гонки с планировщиком при
+        // параллельном запуске коллекций давали флук).
+        using var wait = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (storage.WrittenSessions.Count < 20 || storage.WrittenProcesses.Count < 20 ||
+               storage.WrittenConnections.Count < 20 || storage.WrittenLocks.Count < 20)
+        {
+            await Task.Delay(50, wait.Token);
+        }
 
         Assert.Equal(20, storage.WrittenSessions.Count);
         Assert.Equal(20, storage.WrittenProcesses.Count);
