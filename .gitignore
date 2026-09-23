@@ -25,3 +25,9 @@ docker-compose.override.local.yml
 
 ## ras-minimal/bin are curated 1C platform binaries (build context for ras image)
 !ras-minimal/bin/
+## Reverse-engineering / dev runtime (не публикуется)
+.opencode/
+
+## Файлы платформы 1С (проприетарные, скачиваются с сайта 1С)
+ras-minimal/bin/
+ras-minimal/conf/
