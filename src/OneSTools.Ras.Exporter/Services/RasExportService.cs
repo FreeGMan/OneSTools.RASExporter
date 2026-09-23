@@ -19,7 +19,7 @@ namespace OneSTools.Ras.Exporter.Services;
 /// <summary>
 /// Диспетчер сбора: вариант C — на каждую пару (сервер RAS, кластер) своё SWP-соединение
 /// со своим reconnect-циклом; обнаружение кластеров — отдельный периодический проход.
-/// Изоляция: падение/тормоза одного кластера не влияют на остальные (замеры LoadSim, TODO.md 10-LoadTest).
+/// Изоляция: падение/тормоза одного кластера не влияют на остальные (замеры LoadSim).
 /// </summary>
 public sealed class RasExportService : BackgroundService
 {
@@ -197,7 +197,7 @@ public sealed class RasExportService : BackgroundService
                 clusterLogger.LogInformation("Подключение к RAS {Host}:{Port} для кластера...", server.Host, server.Port);
                 await client.ConnectAsync(server.AgentAuth.User, server.AgentAuth.Password, cancellationToken: connectCts.Token);
 
-                // Реальный RAS требует явный authenticateCluster даже с пустыми учётками (TODO.md п.8).
+                // Реальный RAS требует явный authenticateCluster даже с пустыми учётками.
                 await client.AuthenticateClusterAsync(target.ClusterId, target.User ?? string.Empty, target.Password ?? string.Empty, token);
                 backoff.Reset();
                 _health.MarkConnected(healthKey);

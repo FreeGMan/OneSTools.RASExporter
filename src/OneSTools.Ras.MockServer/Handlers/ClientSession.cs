@@ -16,7 +16,7 @@ namespace OneSTools.Ras.MockServer.Handlers;
 /// Обработка одного TCP-подключения клиента RAS:
 /// Negotiate (raw 8 байт) → Connect (type 1) → ConnectAck (type 2) → цикл фреймов.
 /// Источник: docs/TRANSPORT_SPEC.md, разделы 4–8; поведение сервиса администрирования
-/// и отказов — по реальному RAS 8.3.25.1520 (см. tests/.../RealRas, TODO.md п.2/7).
+/// и отказов — по реальному RAS 8.3.25.1520 (docs/TRANSPORT_SPEC.md §7.2, тесты tests/.../RealRas).
 /// </summary>
 public sealed class ClientSession
 {

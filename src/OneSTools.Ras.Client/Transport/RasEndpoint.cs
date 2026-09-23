@@ -12,13 +12,16 @@ namespace OneSTools.Ras.Client.Transport;
 /// </summary>
 public sealed class RasEndpoint : IAsyncDisposable
 {
-    // SWP-эндпоинт последовательный (1 ожидающий ответ). Серийный гейт делает ExecuteAsync/
-    // ExecuteVoidAsync потокобезопасными: конкурентные вызовы выстраиваются в очередь.
+    // SWP-эндпоинт последовательный (1 ожидающий ответ): гейт сериализует конкурентные вызовы.
     private readonly SemaphoreSlim _callGate = new(1, 1);
 
+/// <summary>Идентификатор эндпоинта, выданный сервером.</summary>
     public int EndpointId { get; }
+/// <summary>Имя/версия сервиса, согласованные при открытии.</summary>
     public ServiceId ServiceId { get; }
+/// <summary>Родительское соединение.</summary>
     public RasConnection Connection { get; }
+/// <summary>Подтверждено ли сервером endpoint.encoding=deflate для этого эндпоинта.</summary>
     public bool UseCompression { get; }
 
     public RasEndpoint(int endpointId, ServiceId serviceId, RasConnection connection, bool useCompression)
@@ -101,7 +104,7 @@ public sealed class RasEndpoint : IAsyncDisposable
 
         if (reader.Remaining > 0)
         {
-            _ = reader.ReadByte(); // message type
+            _ = reader.ReadByte(); // wire type
         }
 
         return TResponse.Deserialize(ref reader, protocolVersion);
@@ -125,8 +128,8 @@ public sealed class RasEndpoint : IAsyncDisposable
         {
             // Ignore on dispose
         }
-        // _callGate не освобождается: ожидающий в WaitAsync гонял бы с ObjectDisposedException;
-        // SemaphoreSlim без событий не держит неуправляемых ресурсов.
+        // _callGate не диспоузится: ожидающие получили бы ObjectDisposedException,
+        // а неуправляемых ресурсов SemaphoreSlim без событий не держит.
     }
 
     public override string ToString() => $"RasEndpoint(Id={EndpointId}, Service={ServiceId}, Compression={UseCompression})";

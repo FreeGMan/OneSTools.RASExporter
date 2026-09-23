@@ -5,6 +5,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Messages;
 
+/// <summary>Запрос SWP-сообщение «GetWorkingProcessesRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetWorkingProcessesRequest(Guid ClusterId) : IRasRequest<GetWorkingProcessesResponse>
 {
     public MessageType MessageType => MessageType.GetWorkingProcessesRequest;
@@ -20,6 +21,7 @@ public sealed record GetWorkingProcessesRequest(Guid ClusterId) : IRasRequest<Ge
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetWorkingProcessesResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetWorkingProcessesResponse : IRasResponse<GetWorkingProcessesResponse>
 {
     public IReadOnlyList<ProcessInfo> Processes { get; init; } = Array.Empty<ProcessInfo>();
@@ -47,6 +49,7 @@ public sealed record GetWorkingProcessesResponse : IRasResponse<GetWorkingProces
     }
 }
 
+/// <summary>Запрос SWP-сообщение «GetWorkingProcessInfoRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetWorkingProcessInfoRequest(Guid ClusterId, Guid ProcessId) : IRasRequest<GetWorkingProcessInfoResponse>
 {
     public MessageType MessageType => MessageType.GetWorkingProcessInfoRequest;
@@ -63,6 +66,7 @@ public sealed record GetWorkingProcessInfoRequest(Guid ClusterId, Guid ProcessId
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetWorkingProcessInfoResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetWorkingProcessInfoResponse : IRasResponse<GetWorkingProcessInfoResponse>
 {
     public ProcessInfo Info { get; init; } = new();

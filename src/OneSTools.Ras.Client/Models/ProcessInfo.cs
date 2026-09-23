@@ -4,6 +4,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Models;
 
+/// <summary>Модель данных «ProcessInfo» (docs/API_REFERENCE.md §3; версионированные поля — по reference/v8platform-protos).</summary>
 public sealed record ProcessInfo
 {
     public Guid Uuid { get; init; }

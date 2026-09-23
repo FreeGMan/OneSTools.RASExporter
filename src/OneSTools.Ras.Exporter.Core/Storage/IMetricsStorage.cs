@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 
 namespace OneSTools.Ras.Exporter.Core.Storage;
 
+/// <summary>Абстракция хранилища метрик: авто-создание схем, пакетная запись, зонд доступности.</summary>
 public interface IMetricsStorage
 {
     string GetDatabaseName(string clusterName, Guid clusterId);

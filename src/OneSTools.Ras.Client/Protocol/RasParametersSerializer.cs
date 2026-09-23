@@ -5,6 +5,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Protocol;
 
+/// <summary>Сериализация карты параметров протокола (ключ → типизированное значение), docs/TRANSPORT_SPEC.md §3.4.</summary>
 public static class RasParametersSerializer
 {
     public static void WriteParameters(ref RasWriter writer, IReadOnlyDictionary<string, object?> parameters)

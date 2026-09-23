@@ -15,77 +15,24 @@ using Xunit;
 namespace OneSTools.Ras.IntegrationTests.RealRas;
 
 /// <summary>
-/// Протокольные тесты против РЕАЛЬНОГО RAS-сервера 1С 8.3 (контейнер `ras` из
-/// docker-compose, адрес по умолчанию ras:1545, переопределение RAC_TEST_RAS_HOST/PORT).
-/// RAS не подключён к рабочему кластеру ragent, поэтому проверяются транспорт и
-/// codecs: handshake, connect/ack, открытие эндпоинта, версии сервиса, deflate,
-/// запросы не требующие кластера и декодирование удаленных исключений.
+/// Низкоуровневые протокольные тесты против РЕАЛЬНОГО RAS-сервера 1С 8.3
+/// (стенд 1c-test-server по умолчанию, переопределение RAC_TEST_RAS_HOST/PORT).
+/// Проверяют транспорт и форматы: handshake, connect/ack, negotiation эндпоинта,
+/// версии сервиса, deflate, запросы без кластера и декодирование удалённых исключений.
+/// Высокоуровневый клиент — RasAdminClientAgainstRealRasTests.
 /// </summary>
 public sealed class RealRasProtocolTests
 {
-    // Реальный RAS регистрирует сервис администрирования под именем v8.service.Admin.Cluster
-    // (Java SDK: AgentAdminConnectionProxy.SERVICE_NAME), версии 3.0..10.0, сервер 8.3.25
-    // принимает и 12.0.
-    private const string AdminServiceName = "v8.service.Admin.Cluster";
-    private static readonly string[] CandidateVersions = { "12.0", "11.0", "10.0", "9.0", "8.0", "7.0", "6.0", "5.0", "4.0", "3.0" };
-
-    private static readonly string Host = Environment.GetEnvironmentVariable("RAC_TEST_RAS_HOST") ?? "1c-test-server";
-    private static readonly int Port = int.Parse(Environment.GetEnvironmentVariable("RAC_TEST_RAS_PORT") ?? "1545");
-
-    private static bool ServerReachable()
-    {
-        try
-        {
-            using var client = new TcpClient();
-            return client.ConnectAsync(Host, Port).Wait(TimeSpan.FromSeconds(3));
-        }
-        catch (SocketException)
-        {
-            return false;
-        }
-    }
-
-    // Известный баг (TODO.md #1): RasConnection.ConnectAsync не поддерживает DnsEndPoint —
-    // InvalidCastException при приведении к IPEndPoint. Обход: резолвим IPv4 в тесте сами.
-    private static IPEndPoint ResolveServer()
-    {
-        if (IPAddress.TryParse(Host, out var literal))
-            return new IPEndPoint(literal, Port);
-        var ips = Dns.GetHostAddresses(Host);
-        var ipv4 = ips.First(a => a.AddressFamily == AddressFamily.InterNetwork);
-        return new IPEndPoint(ipv4, Port);
-    }
-
-    private static async Task<(RasConnection Connection, RasEndpoint Endpoint)> OpenAdminEndpointAsync(CancellationToken cancellationToken)
-    {
-        var connection = new RasConnection(ResolveServer(), NullLogger<RasConnection>.Instance);
-        await connection.ConnectAsync(new Dictionary<string, object?> { { "client.name", "onestools_ras_protocol_test" } }, cancellationToken);
-
-        RasException? lastError = null;
-        foreach (var version in CandidateVersions)
-        {
-            try
-            {
-                var endpoint = await connection.OpenEndpointAsync(new ServiceId(AdminServiceName, version), cancellationToken: cancellationToken);
-                return (connection, endpoint);
-            }
-            catch (RasRemoteException ex)
-            {
-                lastError = ex;
-            }
-        }
-
-        await connection.DisposeAsync();
-        throw lastError ?? new RasException($"Ни одна версия {AdminServiceName} не открылась");
-    }
+    private static string Host => RealRasSupport.Host;
+    private static int Port => RealRasSupport.Port;
 
     [SkippableFact]
     public async Task Handshake_And_Connect_Ack()
     {
-        Skip.IfNot(ServerReachable(), $"RAS недоступен на {Host}:{Port}");
+        Skip.IfNot(RealRasSupport.ServerReachable(), $"RAS недоступен на {Host}:{Port}");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
-        await using var connection = new RasConnection(ResolveServer(), NullLogger<RasConnection>.Instance);
+        await using var connection = new RasConnection(RealRasSupport.ResolveServer(), NullLogger<RasConnection>.Instance);
         await connection.ConnectAsync(new Dictionary<string, object?> { { "client.name", "onestools_ras_protocol_test" } }, cts.Token);
 
         Assert.True(connection.KeepAliveTimeout > TimeSpan.Zero);
@@ -94,15 +41,15 @@ public sealed class RealRasProtocolTests
     [SkippableFact]
     public async Task Connect_And_Open_Admin_Endpoint_With_Deflate()
     {
-        Skip.IfNot(ServerReachable(), $"RAS недоступен на {Host}:{Port}");
+        Skip.IfNot(RealRasSupport.ServerReachable(), $"RAS недоступен на {Host}:{Port}");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
-        var (connection, endpoint) = await OpenAdminEndpointAsync(cts.Token);
+        var (connection, endpoint) = await RealRasSupport.OpenAdminEndpointAsync(cts.Token);
         await using (connection)
         await using (endpoint)
         {
             Assert.True(endpoint.EndpointId > 0);
-            Assert.Equal(AdminServiceName, endpoint.ServiceId.Name);
+            Assert.Equal(RealRasSupport.AdminServiceName, endpoint.ServiceId.Name);
             Assert.True(endpoint.UseCompression, "Сервер должен подтверждать endpoint.encoding=deflate");
         }
     }
@@ -110,10 +57,10 @@ public sealed class RealRasProtocolTests
     [SkippableFact]
     public async Task Open_Admin_Endpoint_Fails_With_Wrong_ServiceId()
     {
-        Skip.IfNot(ServerReachable(), $"RAS недоступен на {Host}:{Port}");
+        Skip.IfNot(RealRasSupport.ServerReachable(), $"RAS недоступен на {Host}:{Port}");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
-        await using var connection = new RasConnection(ResolveServer(), NullLogger<RasConnection>.Instance);
+        await using var connection = new RasConnection(RealRasSupport.ResolveServer(), NullLogger<RasConnection>.Instance);
         await connection.ConnectAsync(null, cts.Token);
 
         var wrong = new ServiceId("com.1c.v8.ibis.admin.IAgentAdminConnection", "1.0");
@@ -125,10 +72,10 @@ public sealed class RealRasProtocolTests
     [SkippableFact]
     public async Task GetAgentVersion_Returns_Platform_Version()
     {
-        Skip.IfNot(ServerReachable(), $"RAS недоступен на {Host}:{Port}");
+        Skip.IfNot(RealRasSupport.ServerReachable(), $"RAS недоступен на {Host}:{Port}");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
-        var (connection, endpoint) = await OpenAdminEndpointAsync(cts.Token);
+        var (connection, endpoint) = await RealRasSupport.OpenAdminEndpointAsync(cts.Token);
         await using (connection)
         await using (endpoint)
         {
@@ -142,10 +89,10 @@ public sealed class RealRasProtocolTests
     [SkippableFact]
     public async Task GetClusters_Roundtrip_With_Real_Ragent_Or_Decoded_Exception()
     {
-        Skip.IfNot(ServerReachable(), $"RAS недоступен на {Host}:{Port}");
+        Skip.IfNot(RealRasSupport.ServerReachable(), $"RAS недоступен на {Host}:{Port}");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
-        var (connection, endpoint) = await OpenAdminEndpointAsync(cts.Token);
+        var (connection, endpoint) = await RealRasSupport.OpenAdminEndpointAsync(cts.Token);
         await using (connection)
         await using (endpoint)
         {
@@ -162,7 +109,7 @@ public sealed class RealRasProtocolTests
             }
             catch (RasRemoteException ex)
             {
-                // RAS без ragent: ожидаем осмысленное декодированное исключение (ragent connection refused)
+                // RAS без живого ragent: осмысленное декодированное исключение вместо зависания
                 Assert.Contains("cluster", ex.Message, StringComparison.OrdinalIgnoreCase);
                 Assert.IsType<RasRemoteException>(ex.InnerException);
             }
@@ -172,10 +119,10 @@ public sealed class RealRasProtocolTests
     [SkippableFact]
     public async Task AuthenticateAgent_With_Bad_Credentials_Fails_Cleanly()
     {
-        Skip.IfNot(ServerReachable(), $"RAS недоступен на {Host}:{Port}");
+        Skip.IfNot(RealRasSupport.ServerReachable(), $"RAS недоступен на {Host}:{Port}");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
-        var (connection, endpoint) = await OpenAdminEndpointAsync(cts.Token);
+        var (connection, endpoint) = await RealRasSupport.OpenAdminEndpointAsync(cts.Token);
         await using (connection)
         await using (endpoint)
         {
@@ -190,10 +137,10 @@ public sealed class RealRasProtocolTests
     [SkippableFact]
     public async Task KeepAlive_Keeps_Connection_Alive()
     {
-        Skip.IfNot(ServerReachable(), $"RAS недоступен на {Host}:{Port}");
+        Skip.IfNot(RealRasSupport.ServerReachable(), $"RAS недоступен на {Host}:{Port}");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
-        var (connection, endpoint) = await OpenAdminEndpointAsync(cts.Token);
+        var (connection, endpoint) = await RealRasSupport.OpenAdminEndpointAsync(cts.Token);
         await using (connection)
         await using (endpoint)
         {
@@ -209,10 +156,10 @@ public sealed class RealRasProtocolTests
     [SkippableFact]
     public async Task Sequential_Requests_On_Same_Endpoint()
     {
-        Skip.IfNot(ServerReachable(), $"RAS недоступен на {Host}:{Port}");
+        Skip.IfNot(RealRasSupport.ServerReachable(), $"RAS недоступен на {Host}:{Port}");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
-        var (connection, endpoint) = await OpenAdminEndpointAsync(cts.Token);
+        var (connection, endpoint) = await RealRasSupport.OpenAdminEndpointAsync(cts.Token);
         await using (connection)
         await using (endpoint)
         {

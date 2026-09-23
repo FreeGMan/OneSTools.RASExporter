@@ -12,9 +12,9 @@ using OneSTools.Ras.Client.Transport;
 namespace OneSTools.Ras.IntegrationTests.RealRas;
 
 /// <summary>
-/// Общие утилы тестов против реального RAS. Обходят зафиксированные баги клиента:
-/// #1 DnsEndPoint (TODO.md) — резолвим IPv4 сами; #2/#3 неверный ServiceId и
-/// отсутствие negotiation версий — открываем эндпоинт напрямую RasConnection.
+/// Общие утилы тестов против реального RAS. Высокоуровневый путь клиента покрыт
+/// RasAdminClientAgainstRealRasTests; здесь низкоуровневый доступ (RasConnection +
+/// ручной negotiation версий) для проверки транспорта и форматов сообщений.
 /// </summary>
 internal static class RealRasSupport
 {
@@ -37,13 +37,11 @@ internal static class RealRasSupport
         }
     }
 
-    public static IPEndPoint ResolveServer()
-    {
-        if (IPAddress.TryParse(Host, out var literal))
-            return new IPEndPoint(literal, Port);
-        var ipv4 = Dns.GetHostAddresses(Host).First(a => a.AddressFamily == AddressFamily.InterNetwork);
-        return new IPEndPoint(ipv4, Port);
-    }
+    /// <summary>EndPoint сервера: IP как есть, имя — DnsEndPoint (поддержан RasConnection).</summary>
+    public static EndPoint ResolveServer() =>
+        IPAddress.TryParse(Host, out var literal)
+            ? new IPEndPoint(literal, Port)
+            : new DnsEndPoint(Host, Port);
 
     public static async Task<(RasConnection Connection, RasEndpoint Endpoint)> OpenAdminEndpointAsync(CancellationToken cancellationToken)
     {

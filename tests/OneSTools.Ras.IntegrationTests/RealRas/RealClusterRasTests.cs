@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using OneSTools.Ras.Client.Exceptions;
 using OneSTools.Ras.Client.Messages;
 using OneSTools.Ras.Client.Models;
-using OneSTools.Ras.IntegrationTests.RealRas;
 using Xunit;
 
 namespace OneSTools.Ras.IntegrationTests.RealRas;
@@ -41,7 +40,7 @@ public sealed class RealClusterRasTests
         {
             await connection.DisposeAsync();
             await endpoint.DisposeAsync();
-            throw new SkipException($"Кластер {cluster.Name} требует реальные учётные данные администратора (задайте RAC_TEST_RAS_CLUSTER_ID и доработка тестов): {ex.Message}");
+            throw new SkipException($"Кластер {cluster.Name} требует реальные учётные данные администратора (задайте учётки в конфигурации стенда): {ex.Message}");
         }
 
         return (connection, endpoint, cluster.Uuid, endpoint.ProtoVersion());

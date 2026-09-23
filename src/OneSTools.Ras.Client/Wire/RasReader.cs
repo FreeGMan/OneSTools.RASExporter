@@ -20,6 +20,7 @@ public ref struct RasReader
         _reader = new SequenceReader<byte>(sequence);
     }
 
+    /// <summary>RAW: 1 байт (CODEC_SPEC §3.1).</summary>
     public byte ReadByte()
     {
         if (!_reader.TryRead(out byte value))
@@ -27,6 +28,7 @@ public ref struct RasReader
         return value;
     }
 
+    /// <summary>int16, 2 байта big-endian (CODEC_SPEC §3.1).</summary>
     public short ReadShort()
     {
         if (!_reader.TryReadBigEndian(out short value))
@@ -34,6 +36,7 @@ public ref struct RasReader
         return value;
     }
 
+    /// <summary>int32: фиксированные 4 байта big-endian, НЕ varint (CODEC_SPEC §3.1).</summary>
     public int ReadInt32()
     {
         if (!_reader.TryReadBigEndian(out int value))
@@ -41,6 +44,7 @@ public ref struct RasReader
         return value;
     }
 
+    /// <summary>int64: фиксированные 8 байт big-endian (CODEC_SPEC §3.1).</summary>
     public long ReadLong()
     {
         if (!_reader.TryReadBigEndian(out long value))
@@ -48,10 +52,11 @@ public ref struct RasReader
         return value;
     }
 
+    /// <summary>size: unsigned LEB128 varint, 7 бит/байт, 0x80 = продолжение (CODEC_SPEC §3.2).</summary>
     public int ReadSize()
     {
         int cur = ReadByte();
-        int size = cur & RasWireConstants.LsbMask; // 0x7F
+        int size = cur & RasWireConstants.LsbMask;
 
         for (int i = 1, shift = 7; (cur & RasWireConstants.NextMask) != 0; i++, shift += 7)
         {
@@ -67,18 +72,19 @@ public ref struct RasReader
         return size;
     }
 
+    /// <summary>nullable_size: первый байт — 6 бит значения, 0x40 = продолжение, 0x80 = null (CODEC_SPEC §3.2).</summary>
     public int? ReadNullableSize()
     {
         int cur = ReadByte();
-        if ((cur & RasWireConstants.NextMask) != 0) // 0x80
+        if ((cur & RasWireConstants.NextMask) != 0)
         {
             if ((cur & RasWireConstants.LsbMask) != 0)
                 throw new InvalidDataException("null expected");
             return null;
         }
 
-        int size = cur & RasWireConstants.NullLsbMask; // 0x3F
-        if ((cur & RasWireConstants.NullNextMask) != 0) // 0x40
+        int size = cur & RasWireConstants.NullLsbMask;
+        if ((cur & RasWireConstants.NullNextMask) != 0)
         {
             int shift = 6;
             for (int i = 1; ; i++, shift += 7)
@@ -98,6 +104,7 @@ public ref struct RasReader
         return size;
     }
 
+    /// <summary>Сырые байты фиксированной длины с проверками лимитов (SECURITY.md T1).</summary>
     public byte[] ReadBytes(int length)
     {
         if (length == 0) return Array.Empty<byte>();
@@ -113,12 +120,14 @@ public ref struct RasReader
         return bytes;
     }
 
+    /// <summary>bytes: [size][данные] (CODEC_SPEC §3.3).</summary>
     public byte[] ReadByteArray()
     {
         int length = ReadSize();
         return ReadBytes(length);
     }
 
+    /// <summary>string: [nullable-size UTF-8 длина][байты]; null ⇒ 0x80 (Java-семантика, CODEC_SPEC §3.3).</summary>
     public string? ReadString()
     {
         int? length = ReadNullableSize();
@@ -138,6 +147,7 @@ public ref struct RasReader
         return Encoding.UTF8.GetString(bytes);
     }
 
+    /// <summary>uuid: 16 байт, big-endian порядок равный .NET Guid (CODEC_SPEC §3.3, трансформация проверена стендом).</summary>
     public Guid ReadUuid()
     {
         if (_reader.UnreadSpan.Length >= RasWireConstants.SizeOfUuid)
@@ -151,16 +161,19 @@ public ref struct RasReader
         return new Guid(bytes, bigEndian: true);
     }
 
+    /// <summary>float: IEEE-754, 4 байта big-endian (CODEC_SPEC §3.1).</summary>
     public float ReadFloat()
     {
         return BitConverter.Int32BitsToSingle(ReadInt32());
     }
 
+    /// <summary>double: IEEE-754, 8 байт big-endian (CODEC_SPEC §3.1).</summary>
     public double ReadDouble()
     {
         return BitConverter.Int64BitsToDouble(ReadLong());
     }
 
+    /// <summary>type: 1 байт кода ServiceWireType; 0x80 = null (CODEC_SPEC §3.4).</summary>
     public ServiceWireType? ReadType()
     {
         int cur = ReadByte();
@@ -177,11 +190,13 @@ public ref struct RasReader
         return (ServiceWireType)cur;
     }
 
+    /// <summary>endpoint_id: тот же кодлинг, что nullable_size (CODEC_SPEC §3.2).</summary>
     public int? ReadEndpointId()
     {
         return ReadNullableSize();
     }
 
+    /// <summary>bool: 1 байт 0/1 (CODEC_SPEC §3.1).</summary>
     public bool ReadBool()
     {
         byte val = ReadByte();
@@ -193,6 +208,7 @@ public ref struct RasReader
         };
     }
 
+    /// <summary>time: int64 тиков от 0001-01-01 (R8-время, смещение AgeDelta), отдаётся в UTC (CODEC_SPEC §3.3).</summary>
     public DateTime ReadTime()
     {
         long ticks = ReadLong();
@@ -215,6 +231,7 @@ public ref struct RasReader
         return count;
     }
 
+    /// <summary>Прочитать остаток потока как байты.</summary>
     public byte[] ReadRemainingBytes()
     {
         int remaining = Remaining;
@@ -222,6 +239,7 @@ public ref struct RasReader
         return ReadBytes(remaining);
     }
 
+    /// <summary>char: 2 байта big-endian кодовая точка.</summary>
     public char ReadChar()
     {
         return (char)ReadShort();

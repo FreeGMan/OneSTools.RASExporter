@@ -10,6 +10,7 @@ using OneSTools.Ras.Exporter.Core.Storage;
 
 namespace OneSTools.Ras.Exporter.Core.Collectors;
 
+/// <summary>Периодический расчёт сводки кластера (сессии/процессы/соединения/блокировки) → cluster_summary.</summary>
 public sealed class ClusterSummaryCollector
 {
     private readonly RasAdminClient _client;
@@ -56,7 +57,7 @@ public sealed class ClusterSummaryCollector
             }
             catch (Exception) when (_client.Connection.IsClosed)
             {
-                throw; // соединение RAS мертво — ClusterMetricsWorker/экспортёр переподключатся
+                throw; // соединение RAS мертво — экспортёр выполнит переподключение
             }
             catch (Exception ex)
             {

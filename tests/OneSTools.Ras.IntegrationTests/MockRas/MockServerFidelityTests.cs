@@ -17,7 +17,7 @@ namespace OneSTools.Ras.IntegrationTests.MockRas;
 /// <summary>
 /// Проверка protocol-fidelity мока: имя/версии сервиса, отказ UnsupportedService
 /// со списком supported=, negotiation клиента и гейт прав cluster-admin — всё как
-/// на реальном RAS 8.3.25 (TODO.md п.7).
+/// на реальном RAS 8.3.25 (docs/TRANSPORT_SPEC.md §7.2).
 /// </summary>
 public sealed class MockServerFidelityTests : IAsyncLifetime
 {

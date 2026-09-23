@@ -5,6 +5,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Messages;
 
+/// <summary>Запрос SWP-сообщение «GetLocksRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetLocksRequest(Guid ClusterId) : IRasRequest<GetLocksResponse>
 {
     public MessageType MessageType => MessageType.GetLocksRequest;
@@ -20,6 +21,7 @@ public sealed record GetLocksRequest(Guid ClusterId) : IRasRequest<GetLocksRespo
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetLocksResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetLocksResponse : IRasResponse<GetLocksResponse>
 {
     public IReadOnlyList<LockInfo> Locks { get; init; } = Array.Empty<LockInfo>();
@@ -47,6 +49,7 @@ public sealed record GetLocksResponse : IRasResponse<GetLocksResponse>
     }
 }
 
+/// <summary>Запрос SWP-сообщение «GetInfoBaseLocksRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetInfoBaseLocksRequest(Guid ClusterId, Guid InfobaseId) : IRasRequest<GetInfoBaseLocksResponse>
 {
     public MessageType MessageType => MessageType.GetInfoBaseLocksRequest;
@@ -63,6 +66,7 @@ public sealed record GetInfoBaseLocksRequest(Guid ClusterId, Guid InfobaseId) : 
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetInfoBaseLocksResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetInfoBaseLocksResponse : IRasResponse<GetInfoBaseLocksResponse>
 {
     public IReadOnlyList<LockInfo> Locks { get; init; } = Array.Empty<LockInfo>();
@@ -90,6 +94,7 @@ public sealed record GetInfoBaseLocksResponse : IRasResponse<GetInfoBaseLocksRes
     }
 }
 
+/// <summary>Запрос SWP-сообщение «GetConnectionLocksRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetConnectionLocksRequest(Guid ClusterId, Guid ConnectionId) : IRasRequest<GetConnectionLocksResponse>
 {
     public MessageType MessageType => MessageType.GetConnectionLocksRequest;
@@ -106,6 +111,7 @@ public sealed record GetConnectionLocksRequest(Guid ClusterId, Guid ConnectionId
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetConnectionLocksResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetConnectionLocksResponse : IRasResponse<GetConnectionLocksResponse>
 {
     public IReadOnlyList<LockInfo> Locks { get; init; } = Array.Empty<LockInfo>();
@@ -133,6 +139,7 @@ public sealed record GetConnectionLocksResponse : IRasResponse<GetConnectionLock
     }
 }
 
+/// <summary>Запрос SWP-сообщение «GetSessionLocksRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetSessionLocksRequest(Guid ClusterId, Guid SessionId) : IRasRequest<GetSessionLocksResponse>
 {
     public MessageType MessageType => MessageType.GetSessionLocksRequest;
@@ -149,6 +156,7 @@ public sealed record GetSessionLocksRequest(Guid ClusterId, Guid SessionId) : IR
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetSessionLocksResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetSessionLocksResponse : IRasResponse<GetSessionLocksResponse>
 {
     public IReadOnlyList<LockInfo> Locks { get; init; } = Array.Empty<LockInfo>();

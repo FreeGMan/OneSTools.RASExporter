@@ -177,6 +177,7 @@ public sealed class SwpFrameReader
     }
 }
 
+/// <summary>Внутренние расширения потока для mock-сервера.</summary>
 internal static class StreamExtensions
 {
     public static async Task<byte> ReadByteAsync(this Stream stream, CancellationToken cancellationToken)

@@ -9,6 +9,7 @@ using OneSTools.Ras.Exporter.Core.Storage;
 
 namespace OneSTools.Ras.Exporter.Core.Collectors;
 
+/// <summary>Периодический опрос getLocksList → pipeline.</summary>
 public sealed class LockCollector
 {
     private readonly RasAdminClient _client;
@@ -55,7 +56,7 @@ public sealed class LockCollector
             }
             catch (Exception) when (_client.Connection.IsClosed)
             {
-                throw; // соединение RAS мертво — ClusterMetricsWorker/экспортёр переподключатся
+                throw; // соединение RAS мертво — экспортёр выполнит переподключение
             }
             catch (Exception ex)
             {

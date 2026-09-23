@@ -5,6 +5,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Messages;
 
+/// <summary>Запрос SWP-сообщение «GetWorkingServersRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetWorkingServersRequest(Guid ClusterId) : IRasRequest<GetWorkingServersResponse>
 {
     public MessageType MessageType => MessageType.GetWorkingServersRequest;
@@ -20,6 +21,7 @@ public sealed record GetWorkingServersRequest(Guid ClusterId) : IRasRequest<GetW
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetWorkingServersResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetWorkingServersResponse : IRasResponse<GetWorkingServersResponse>
 {
     public IReadOnlyList<ServerInfo> Servers { get; init; } = Array.Empty<ServerInfo>();
@@ -47,6 +49,7 @@ public sealed record GetWorkingServersResponse : IRasResponse<GetWorkingServersR
     }
 }
 
+/// <summary>Запрос SWP-сообщение «GetClusterManagersRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetClusterManagersRequest(Guid ClusterId) : IRasRequest<GetClusterManagersResponse>
 {
     public MessageType MessageType => MessageType.GetClusterManagersRequest;
@@ -62,6 +65,7 @@ public sealed record GetClusterManagersRequest(Guid ClusterId) : IRasRequest<Get
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetClusterManagersResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetClusterManagersResponse : IRasResponse<GetClusterManagersResponse>
 {
     public IReadOnlyList<ManagerInfo> Managers { get; init; } = Array.Empty<ManagerInfo>();
@@ -89,6 +93,7 @@ public sealed record GetClusterManagersResponse : IRasResponse<GetClusterManager
     }
 }
 
+/// <summary>Запрос SWP-сообщение «GetClusterServicesRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetClusterServicesRequest(Guid ClusterId) : IRasRequest<GetClusterServicesResponse>
 {
     public MessageType MessageType => MessageType.GetClusterServicesRequest;
@@ -104,6 +109,7 @@ public sealed record GetClusterServicesRequest(Guid ClusterId) : IRasRequest<Get
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetClusterServicesResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetClusterServicesResponse : IRasResponse<GetClusterServicesResponse>
 {
     public IReadOnlyList<ServiceInfo> Services { get; init; } = Array.Empty<ServiceInfo>();

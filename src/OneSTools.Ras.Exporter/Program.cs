@@ -20,11 +20,9 @@ var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
     ContentRootPath = AppContext.BaseDirectory
 });
 
-// appsettings.local.json (gitignored) — локальные секреты/переопределения. Вставляется НИЖЕ
-// переменных окружения и аргументов: приоритет base < local < user-secrets(Dev) < env < args (T7/S3).
 // appsettings.local.json (gitignored) — локальные секреты/переопределения. Хост добавляет
 // env/cmd-источники дважды (bootstrap и основные); вставляем local перед ПОСЛЕДНИМ env/cmd,
-// чтобы приоритет был: base-appsettings < local < env < args (T7/S3).
+// чтобы приоритет был: base-appsettings < local < user-secrets < env < args.
 {
     var configSources = builder.Configuration.Sources;
     int lastEnvCmd = -1;
@@ -69,7 +67,7 @@ builder.Services.AddSingleton<IMetricsStorage>(sp =>
         logger);
 });
 
-// Гейт доступности хранилища (T7/S2): при падении ClickHouse опросы RAS приостанавливаются,
+// Гейт доступности хранилища: при падении ClickHouse опросы RAS приостанавливаются,
 // восстановление проверяется зондом ProbeAsync.
 builder.Services.AddSingleton(sp =>
 {

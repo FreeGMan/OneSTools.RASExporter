@@ -9,6 +9,7 @@ using OneSTools.Ras.Exporter.Core.Storage;
 
 namespace OneSTools.Ras.Exporter.Core.Collectors;
 
+/// <summary>Интервалы опроса по типам метрик.</summary>
 public sealed record ClusterCollectorIntervals(
     TimeSpan Clusters,
     TimeSpan Sessions,
@@ -16,6 +17,7 @@ public sealed record ClusterCollectorIntervals(
     TimeSpan Connections,
     TimeSpan Locks);
 
+/// <summary>Композиция 5 коллекторов одного кластера поверх одного RasAdminClient-соединения (паттерн C, docs/SECURITY.md §2).</summary>
 public sealed class ClusterMetricsWorker
 {
     private readonly RasAdminClient _client;
@@ -51,7 +53,6 @@ public sealed class ClusterMetricsWorker
     {
         _logger.LogInformation("Запуск сбора метрик для кластера {Name} ({Id})", _clusterName, _clusterId);
 
-        // 1. Initialize database & tables in storage
         try
         {
             string dbName = _storage.GetDatabaseName(_clusterName, _clusterId);
@@ -62,16 +63,14 @@ public sealed class ClusterMetricsWorker
             _logger.LogError(ex, "Ошибка инициализации базы данных ClickHouse для кластера {Name}", _clusterName);
         }
 
-        // 2. Instantiate collectors
         var summaryCollector = new ClusterSummaryCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Clusters, _logger, _gate);
         var sessionCollector = new SessionCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Sessions, _logger, _gate);
         var processCollector = new ProcessCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Processes, _logger, _gate);
         var connectionCollector = new ConnectionCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Connections, _logger, _gate);
         var lockCollector = new LockCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Locks, _logger, _gate);
 
-        // 3. Run all collectors concurrently (запросы сериализуются гейтом эндпоинта);
-        // первая же ошибка (например, смерть соединения) останавливает остальных —
-        // вызывающий слой делает переподключение.
+        // Коллекторы работают параллельно (запросы сериализуются гейтом эндпоинта);
+        // первая ошибка останавливает остальных — переподключение делает вызывающий слой.
         using var sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var tasks = new[]
         {

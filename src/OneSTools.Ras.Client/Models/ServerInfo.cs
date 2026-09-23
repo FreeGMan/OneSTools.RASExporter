@@ -4,6 +4,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Models;
 
+/// <summary>Модель данных «struct» (docs/API_REFERENCE.md §3; версионированные поля — по reference/v8platform-protos).</summary>
 public readonly record struct PortRange(short High, short Low)
 {
     public void Serialize(ref RasWriter writer, int version = 0)
@@ -18,6 +19,7 @@ public readonly record struct PortRange(short High, short Low)
     }
 }
 
+/// <summary>Модель данных «ServerInfo» (docs/API_REFERENCE.md §3; версионированные поля — по reference/v8platform-protos).</summary>
 public sealed record ServerInfo
 {
     public Guid Uuid { get; init; }

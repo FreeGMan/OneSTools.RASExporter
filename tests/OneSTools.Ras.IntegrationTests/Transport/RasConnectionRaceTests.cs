@@ -19,7 +19,7 @@ using Xunit;
 namespace OneSTools.Ras.IntegrationTests.Transport;
 
 /// <summary>
-/// Регресс-тесты гонок транспорта (TODO.md T1): серверный DISCONNECT завершает
+/// Регресс-тесты гонок транспорта (docs/SECURITY.md §3 T9): серверный DISCONNECT завершает
 /// pending-запросы и закрывает соединение; отмена после отправки закрывает соединение
 /// (анти-десинхронизация); повторный ConnectAsync отвергается.
 /// «Сервер» — синтетический TcpListener, говорящий по SWP вручную.

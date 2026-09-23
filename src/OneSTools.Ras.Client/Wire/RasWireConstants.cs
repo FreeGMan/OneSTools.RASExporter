@@ -45,7 +45,7 @@ public static class RasWireConstants
     /// </summary>
     public const long AgeDelta = 621355968000000;
 
-    // ----Защитные (docs/SECURITY.md, hardening против повреждённого/враждебного потока) ----
+    // Защитные лимиты парсинга (docs/SECURITY.md): реакция на повреждённый/враждебный поток.
 
     /// <summary>Максимум байт в varint size (int32: 5 групп по 7 бит + контроль переполнения).</summary>
     public const int MaxSizeVarIntBytes = 5;

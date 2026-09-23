@@ -3,12 +3,14 @@ using System.Collections.Generic;
 
 namespace OneSTools.Ras.Client.Exceptions;
 
+/// <summary>Базовое исключение клиента RAS.</summary>
 public class RasException : Exception
 {
     public RasException(string message) : base(message) { }
     public RasException(string message, Exception? innerException) : base(message, innerException) { }
 }
 
+/// <summary>Удалённое Java-исключение, декодированное из SWP throwable (docs/TRANSPORT_SPEC.md §3.5).</summary>
 public sealed class RasRemoteException : RasException
 {
     public string RemoteClassName { get; }
@@ -26,6 +28,7 @@ public sealed class RasRemoteException : RasException
     }
 }
 
+/// <summary>Кадр удалённого stack trace из SWP throwable.</summary>
 public readonly record struct RasRemoteStackFrame(string ClassName, string MethodName, string? FileName, int LineNumber);
 
 /// <summary>

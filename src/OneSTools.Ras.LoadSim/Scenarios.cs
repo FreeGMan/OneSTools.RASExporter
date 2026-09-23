@@ -13,6 +13,7 @@ using OneSTools.Ras.Client.Transport;
 
 namespace OneSTools.Ras.LoadSim;
 
+/// <summary>Наборы нагрузочных сценариев (stage1/ramp/churn/negotiation/chaos).</summary>
 public sealed class Scenarios(Options options)
 {
     private const int AdminProtoVersion = 14;

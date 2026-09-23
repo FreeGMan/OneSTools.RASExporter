@@ -26,7 +26,6 @@ public static class RasCompression
     {
         if (source.IsEmpty) return Array.Empty<byte>();
 
-        // В .NET ReadOnlySpan<byte> можно обернуть в ReadOnlyMemoryStream / MemoryStream
         using var input = new MemoryStream(source.ToArray());
         using var deflate = new DeflateStream(input, CompressionMode.Decompress);
         using var output = new MemoryStream();

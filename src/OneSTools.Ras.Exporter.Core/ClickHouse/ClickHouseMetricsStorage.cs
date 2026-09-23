@@ -11,6 +11,7 @@ using OneSTools.Ras.Exporter.Core.Storage;
 
 namespace OneSTools.Ras.Exporter.Core.ClickHouse;
 
+/// <summary>Хранилище метрик в ClickHouse: авто-схемы, батчи через ClickHouseBulkCopy, зонд ProbeAsync (docs/SECURITY.md §3).</summary>
 public sealed class ClickHouseMetricsStorage : IMetricsStorage
 {
     private readonly string _connectionString;

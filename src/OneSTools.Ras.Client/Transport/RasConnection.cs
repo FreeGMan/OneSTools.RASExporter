@@ -18,6 +18,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Transport;
 
+/// <summary>SWP-транспорт: TCP, Negotiate/Connect/ConnectAck, фрейминг, keep-alive, мультиплексирование эндпоинтов и диспетчеризация ответов (docs/TRANSPORT_SPEC.md).</summary>
 public sealed class RasConnection : IAsyncDisposable
 {
     private readonly EndPoint _remoteEndPoint;
@@ -37,10 +38,10 @@ public sealed class RasConnection : IAsyncDisposable
 
     private readonly Channel<SwpFrame> _unhandledFrames = Channel.CreateUnbounded<SwpFrame>();
 
-    // PipeWriter не потокобезопасен: все записи фреймов (эндпоинты, keep-alive, close)
-    // сериализуются этим гейтом.
+    // PipeWriter не потокобезопасен: все фреймы (эндпоинты, keep-alive, close) пишутся под гейтом.
     private readonly SemaphoreSlim _writeGate = new(1, 1);
 
+/// <summary>Интервал keep-alive из ConnectAck сервера (по умолчанию 20 c).</summary>
     public TimeSpan KeepAliveTimeout { get; private set; } = TimeSpan.FromSeconds(20);
 
     /// <summary>Параметры, полученные в ConnectAck (server.name, keep_alive.timeout и т.п.), до установки соединения — null.</summary>
@@ -59,6 +60,7 @@ public sealed class RasConnection : IAsyncDisposable
         _logger = logger ?? NullLogger<RasConnection>.Instance;
     }
 
+/// <summary>Устанавливает TCP-соединение, выполняет Negotiate (8 байт) → Connect → ConnectAck и запускает read/keep-alive циклы. Повторный вызов на том же экземпляре запрещён.</summary>
     public async Task ConnectAsync(Dictionary<string, object?>? parameters = null, CancellationToken cancellationToken = default)
     {
         if (_readLoopTask is not null)
@@ -83,17 +85,14 @@ public sealed class RasConnection : IAsyncDisposable
         _reader = PipeReader.Create(_networkStream, new StreamPipeReaderOptions(leaveOpen: true));
         _writer = PipeWriter.Create(_networkStream, new StreamPipeWriterOptions(leaveOpen: true));
 
-        // 1. Negotiate
         await SendNegotiateAsync(cancellationToken);
 
-        // 2. Connect
         var connectParams = parameters ?? new Dictionary<string, object?>();
         if (!connectParams.ContainsKey("connect.timeout"))
             connectParams["connect.timeout"] = 2000;
-            
+
         await SendConnectAsync(connectParams, cancellationToken);
 
-        // 3. Wait for ConnectAck
         var ackFrame = await ReadSingleFrameAsync(cancellationToken);
         if (ackFrame.Type != (byte)SwpMessageType.ConnectAck)
         {
@@ -114,11 +113,11 @@ public sealed class RasConnection : IAsyncDisposable
 
         _logger.LogInformation("Connected successfully. Keep-alive timeout: {Timeout}", KeepAliveTimeout);
 
-        // Start background loops
         _readLoopTask = Task.Run(() => ReadLoopAsync(_connectionCts.Token));
         _keepAliveTask = Task.Run(() => KeepAliveLoopAsync(_connectionCts.Token));
     }
 
+/// <summary>Открывает логический эндпоинт сервиса (EndpointOpen → EndpointOpenAck/EndpointFailure). По умолчанию запрашивает endpoint.encoding=deflate.</summary>
     public async Task<RasEndpoint> OpenEndpointAsync(ServiceId serviceId, Dictionary<string, object?>? parameters = null, CancellationToken cancellationToken = default)
     {
         var tcs = new TaskCompletionSource<RasEndpoint>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -138,10 +137,9 @@ public sealed class RasConnection : IAsyncDisposable
             var bufferWriter = new ArrayBufferWriter<byte>();
             var writer = new RasWriter(bufferWriter);
             
-            // Format ServiceId
+            // wire: [name string][version string][parameters map]
             writer.WriteString(serviceId.Name);
             writer.WriteString(serviceId.Version);
-            // Format Parameters
             RasParametersSerializer.WriteParameters(ref writer, openParams);
 
             await WriteFrameAsync((byte)SwpMessageType.EndpointOpen, bufferWriter.WrittenMemory, cancellationToken);
@@ -158,6 +156,7 @@ public sealed class RasConnection : IAsyncDisposable
         }
     }
 
+/// <summary>Закрывает эндпоинт (EndpointClose) без ответа сервера.</summary>
     public async Task CloseEndpointAsync(int endpointId, CancellationToken cancellationToken = default)
     {
         _activeEndpoints.TryRemove(endpointId, out _);
@@ -169,6 +168,7 @@ public sealed class RasConnection : IAsyncDisposable
         await WriteFrameAsync((byte)SwpMessageType.EndpointClose, bufferWriter.WrittenMemory, cancellationToken);
     }
 
+/// <summary>Отправка MESSAGE на эндпоинт и ожидание ответа. Не более одного ожидающего запроса на эндпоинт; потокобезопасность выше уровнем обеспечивает <see cref="RasEndpoint"/>.</summary>
     public async Task<byte[]> SendEndpointMessageAsync(int endpointId, ReadOnlyMemory<byte> payload, bool useCompression, CancellationToken cancellationToken = default)
     {
         var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -180,10 +180,10 @@ public sealed class RasConnection : IAsyncDisposable
         bool sent = false;
         try
         {
-            // 1. Build endpoint body: [0x01 (MESSAGE)][payload]
+            // wire endpoint body: [0x01 MESSAGE][payload]
             var bodyWriter = new ArrayBufferWriter<byte>(1 + payload.Length);
             var bodyRasWriter = new RasWriter(bodyWriter);
-            bodyRasWriter.WriteByte(0x01); // MESSAGE
+            bodyRasWriter.WriteByte(0x01);
             bodyRasWriter.WriteBytes(payload.Span);
 
             ReadOnlyMemory<byte> endpointBody = bodyWriter.WrittenMemory;
@@ -192,17 +192,16 @@ public sealed class RasConnection : IAsyncDisposable
             if (useCompression)
             {
                 endpointBody = RasCompression.Deflate(endpointBody.Span);
-                format = 1; // bit 0 = deflate
+                format = 1;
             }
 
-            // 2. Build SWP frame body: [endpointId: nullable_size][format: short BE][endpointBody]
+            // wire frame body: [endpointId nullable_size][format short BE][endpointBody]
             var frameBodyWriter = new ArrayBufferWriter<byte>(10 + endpointBody.Length);
             var frameRasWriter = new RasWriter(frameBodyWriter);
             frameRasWriter.WriteEndpointId(endpointId);
             frameRasWriter.WriteShort(format);
             frameRasWriter.WriteBytes(endpointBody.Span);
 
-            // 3. Send frame
             await WriteFrameAsync((byte)SwpMessageType.EndpointMessage, frameBodyWriter.WrittenMemory, cancellationToken);
             sent = true;
 
@@ -212,9 +211,8 @@ public sealed class RasConnection : IAsyncDisposable
         catch
         {
             _pendingRequests.TryRemove(endpointId, out _);
-            // Опасен только отменённый ПОСЛЕ отправки запрос: ответ сервера станет «осиротевшим»
-            // и будет ошибочно принят за следующий. Faulted tcs (серверная ошибка) или обрыв —
-            // нормальные исходы, рассинхрона нет.
+            // Отмена ПОСЛЕ отправки оставляет «осиротевший» ответ, который был бы принят
+            // за следующий запрос — соединение закрывается. Faulted/обрыв безопасны.
             if (sent && tcs.Task.IsCanceled)
             {
                 Volatile.Write(ref _closed, 1);
@@ -249,6 +247,7 @@ public sealed class RasConnection : IAsyncDisposable
         await WriteFrameAsync((byte)SwpMessageType.Connect, bufferWriter.WrittenMemory, cancellationToken);
     }
 
+/// <summary>Пишет один SWP-фрейм [type][size varint][body] под гейтом записей.</summary>
     public async Task WriteFrameAsync(byte type, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default)
     {
         if (_writer is null) throw new InvalidOperationException("Not connected");
@@ -280,6 +279,7 @@ public sealed class RasConnection : IAsyncDisposable
         }
     }
 
+/// <summary>Очередь фреймов, не разобранных протоколом (диагностика/расширения).</summary>
     public ValueTask<SwpFrame> ReadFrameAsync(CancellationToken cancellationToken = default)
     {
         return _unhandledFrames.Reader.ReadAsync(cancellationToken);
@@ -397,8 +397,7 @@ public sealed class RasConnection : IAsyncDisposable
             }
             else
             {
-                // Open без ожидающей заявки (гонка отмены): эндпоинт на сервере осиротел;
-                // соединение в этом сценарии закрывается guard-ом cancel-after-send.
+                // Open без ожидающей заявки: эндпоинт осиротел (закрывается guard-ом cancel-after-send).
                 _logger.LogWarning("EndpointOpenAck для неизвестного сервиса {Service} (id={Id}) — осиротевший эндпоинт", serviceId, endpointId);
             }
         }
@@ -492,7 +491,7 @@ public sealed class RasConnection : IAsyncDisposable
             cause = new RasException("Disconnected by remote host");
         }
 
-        // Сервер объявил конец соединения (Java: failure connectFuture + channel.close()).
+        // Java-эталон: failure connectFuture + channel.close().
         Volatile.Write(ref _closed, 1);
         _logger.LogWarning(cause, "Сервер прислал DISCONNECT — соединение закрывается");
         FailAllPending(cause);
@@ -501,8 +500,8 @@ public sealed class RasConnection : IAsyncDisposable
 
     private void FailAllPending(Exception ex)
     {
-        // TryRemove ДО SetException: иначе заявка, добавленная в момент перебора, была бы
-        // удалена Clear()-ом незавершённой и её ожидающий повис бы до таймаута.
+        // TryRemove до SetException: иначе заявка, добавленная в момент перебора, осталась
+        // незавершённой и её ожидающий висел бы до таймаута.
         foreach (var key in _pendingOpenEndpoints.Keys.ToArray())
         {
             if (_pendingOpenEndpoints.TryRemove(key, out var tcs))
@@ -640,4 +639,5 @@ public sealed class RasConnection : IAsyncDisposable
     }
 }
 
+/// <summary>Разобранный SWP-фрейм: [type][body].</summary>
 public readonly record struct SwpFrame(byte Type, byte[] Payload);

@@ -11,7 +11,7 @@ using Xunit;
 namespace OneSTools.Ras.IntegrationTests.Pipeline;
 
 /// <summary>
-/// Семантика сохранности батчей BatchProcessor (TODO.md T5): ретраи при сбое записи,
+/// Семантика сохранности батчей BatchProcessor из docs/SECURITY.md §3 T3: ретраи при сбое записи,
 /// незавершимость in-flight flush при остановке, финальный drain без потерь.
 /// </summary>
 public sealed class BatchProcessorDurabilityTests

@@ -5,6 +5,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Messages;
 
+/// <summary>Запрос SWP-сообщение «AuthenticateAgentRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record AuthenticateAgentRequest(string User, string Password) : IRasVoidRequest
 {
     public MessageType MessageType => MessageType.AuthenticateAgentRequest;
@@ -16,6 +17,7 @@ public sealed record AuthenticateAgentRequest(string User, string Password) : IR
     }
 }
 
+/// <summary>Запрос SWP-сообщение «AuthenticateRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record AuthenticateRequest(Guid ClusterId, string User, string Password) : IRasVoidRequest
 {
     public MessageType MessageType => MessageType.AuthenticateRequest;
@@ -28,6 +30,7 @@ public sealed record AuthenticateRequest(Guid ClusterId, string User, string Pas
     }
 }
 
+/// <summary>Запрос SWP-сообщение «AddAuthenticationRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record AddAuthenticationRequest(Guid InfobaseId, string User, string Password) : IRasVoidRequest
 {
     public MessageType MessageType => MessageType.AddAuthenticationRequest;
@@ -40,6 +43,7 @@ public sealed record AddAuthenticationRequest(Guid InfobaseId, string User, stri
     }
 }
 
+/// <summary>Запрос SWP-сообщение «GetAgentVersionRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetAgentVersionRequest : IRasRequest<GetAgentVersionResponse>
 {
     public MessageType MessageType => MessageType.GetAgentVersionRequest;
@@ -49,6 +53,7 @@ public sealed record GetAgentVersionRequest : IRasRequest<GetAgentVersionRespons
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetAgentVersionResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetAgentVersionResponse : IRasResponse<GetAgentVersionResponse>
 {
     public string Version { get; init; } = string.Empty;
@@ -66,6 +71,7 @@ public sealed record GetAgentVersionResponse : IRasResponse<GetAgentVersionRespo
     }
 }
 
+/// <summary>Запрос SWP-сообщение «GetAgentAdminsRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetAgentAdminsRequest : IRasRequest<GetAgentAdminsResponse>
 {
     public MessageType MessageType => MessageType.GetAgentAdminsRequest;
@@ -75,6 +81,7 @@ public sealed record GetAgentAdminsRequest : IRasRequest<GetAgentAdminsResponse>
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetAgentAdminsResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetAgentAdminsResponse : IRasResponse<GetAgentAdminsResponse>
 {
     public IReadOnlyList<AdminInfo> Admins { get; init; } = Array.Empty<AdminInfo>();
@@ -102,6 +109,7 @@ public sealed record GetAgentAdminsResponse : IRasResponse<GetAgentAdminsRespons
     }
 }
 
+/// <summary>Запрос SWP-сообщение «GetClusterAdminsRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetClusterAdminsRequest(Guid ClusterId) : IRasRequest<GetClusterAdminsResponse>
 {
     public MessageType MessageType => MessageType.GetClusterAdminsRequest;
@@ -112,6 +120,7 @@ public sealed record GetClusterAdminsRequest(Guid ClusterId) : IRasRequest<GetCl
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetClusterAdminsResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetClusterAdminsResponse : IRasResponse<GetClusterAdminsResponse>
 {
     public IReadOnlyList<AdminInfo> Admins { get; init; } = Array.Empty<AdminInfo>();

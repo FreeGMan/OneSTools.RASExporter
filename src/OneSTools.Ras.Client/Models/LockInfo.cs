@@ -3,6 +3,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Models;
 
+/// <summary>Модель данных «LockInfo» (docs/API_REFERENCE.md §3; версионированные поля — по reference/v8platform-protos).</summary>
 public sealed record LockInfo
 {
     public Guid ConnectionId { get; init; }

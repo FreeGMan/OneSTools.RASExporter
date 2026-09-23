@@ -5,7 +5,7 @@ namespace OneSTools.Ras.Exporter.Core.ClickHouse;
 
 /// <summary>
 /// Имена БД ClickHouse приводят к конвенции [a-z0-9_]: кириллица транслитерируется,
-/// прочие символы (пробелы, дефисы…) схлопываются в '_' (TODO.md T2/R5).
+/// прочие символы (пробелы, дефисы…) схлопываются в '_' (docs/ARCHITECTURE_REVIEW.md R5).
 /// </summary>
 public static class ClickHouseDatabaseNamer
 {

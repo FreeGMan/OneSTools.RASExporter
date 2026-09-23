@@ -5,6 +5,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Protocol;
 
+/// <summary>(Де)сериализация Java-throwable из wire-формата SWP (docs/TRANSPORT_SPEC.md §3.5).</summary>
 public static class RasThrowableSerializer
 {
     public static void WriteThrowable(ref RasWriter writer, Exception? exception)

@@ -1,5 +1,6 @@
 namespace OneSTools.Ras.Exporter.Core.ClickHouse;
 
+/// <summary>DDL и имена таблиц схемы метрик ClickHouse.</summary>
 public static class ClickHouseTableDefinitions
 {
     public const string ClusterSummaryTableName = "cluster_summary";

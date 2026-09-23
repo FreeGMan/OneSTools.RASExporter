@@ -4,11 +4,12 @@ using System.Linq;
 
 namespace OneSTools.Ras.LoadSim;
 
+/// <summary>Параметры прогона LoadSim (CLI --flag value).</summary>
 public sealed record Options
 {
     public string Host { get; init; } = Environment.GetEnvironmentVariable("RAC_TEST_RAS_HOST") ?? "1c-test-server";
     public int Port { get; init; } = 1545;
-    public string Mode { get; init; } = "all";           // all | stage1 | ramp | churn | negotiation
+    public string Mode { get; init; } = "all";           // all | stage1 | ramp | churn | negotiation | chaos
     public int Clients { get; init; } = 3;               // stage1: «кластеров» (соединений)
     public int DurationSeconds { get; init; } = 120;     // stage1: длительность
     public int Speedup { get; init; } = 2;               // сжатие интервалов коллекторов

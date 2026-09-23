@@ -4,7 +4,7 @@ using System.Threading;
 namespace OneSTools.Ras.Exporter.Core.Pipeline;
 
 /// <summary>
-/// Экспоненциальный backoff с джиттером для циклов переподключения (TODO.md T2/R3):
+/// Экспоненциальный backoff с джиттером для циклов переподключения (docs/SECURITY.md §3 T8):
 /// 1s → 2s → 5s → 10s → 30s → 60s (потолок), каждый шаг ±20% джиттера, сброс после успеха.
 /// </summary>
 public sealed class BackoffPolicy

@@ -51,6 +51,7 @@ public sealed class SampleSet(string name)
     private static string Truncate(string s, int n) => s.Length <= n ? s : s[..n];
 }
 
+/// <summary>Итог агрегата для отчёта.</summary>
 public sealed record SampleSummary(
     string Name,
     int Count,
@@ -73,4 +74,5 @@ public sealed record SampleSummary(
     }
 }
 
+/// <summary>Одна фаза нагрузочного прогона в отчёте.</summary>
 public sealed record PhaseResult(string Phase, List<SampleSummary> Summary, Dictionary<string, string> Notes);

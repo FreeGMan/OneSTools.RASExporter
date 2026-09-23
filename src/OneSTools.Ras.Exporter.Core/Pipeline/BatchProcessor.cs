@@ -13,7 +13,7 @@ namespace OneSTools.Ras.Exporter.Core.Pipeline;
 /// сбрасывающий накопленные данные порциями по размеру или по интервалу времени.
 /// </summary>
 /// <remarks>
-/// Семантика записи (TODO.md T5): запись батча никогда не отменяется током останова —
+/// Семантика записи (docs/SECURITY.md §3 T3): запись батча никогда не отменяется током останова —
 /// при сбое предельное число повторов с бэкоффом, при исчерпании попыток батч отбрасывается
 /// с ошибкой в лог. При остановке сначала сбрасывается всё недописанное (с укороченным
 /// числом попыток и grace-таймаутом), только затем цикл завершается.
@@ -51,8 +51,8 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
         _flushAttempts = Math.Max(1, flushAttempts);
         _flushGrace = flushGrace ?? TimeSpan.FromSeconds(30);
         _logger = logger ?? NullLogger.Instance;
-        // Страховочный потолок: при живом StorageHealthGate очередь не должна расти до этого
-        // предела; FullMode=Wait даёт backpressure вместо неограниченной аллокации (T7/S2).
+        // Страховка: при живом StorageHealthGate до предела не доходит;
+        // FullMode=Wait даёт backpressure вместо неограниченной аллокации.
         _channel = Channel.CreateBounded<TItem>(new BoundedChannelOptions(100_000)
         {
             FullMode = BoundedChannelFullMode.Wait,
@@ -84,7 +84,6 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
                 bool timedOut = false;
                 bool channelCompleted = false;
 
-                // Ожидание: набить батч до размера либо до истечения интервала.
                 timeoutCts.CancelAfter(_flushInterval);
                 using (var waitCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
                 {
@@ -116,8 +115,7 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
 
                 if (buffer.Count > 0)
                 {
-                    // Запись не привязана к cancellationToken: сброс может начаться уже после
-                    // запроса остановки, данные терять нельзя (см. remarks).
+                    // Сброс может начаться уже после запроса остановки — данные терять нельзя.
                     await FlushWithRetryAsync(buffer, isShutdown: false);
                 }
 
@@ -162,8 +160,7 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
             }
             catch (Exception ex) when (attempt < attempts)
             {
-                // первый же сбой закрывает гейт: коллекторы встают на паузу, не дожидаясь
-                // исчерпания попыток (меньше потерянных данных)
+                // первый сбой закрывает гейт: коллекторы встают на паузу сразу (меньше потерь)
                 _availabilityCallback?.Invoke(false);
                 _logger.LogWarning(ex, "Попытка {Attempt}/{Total} записи батча ({Count} эл.) {Type} не удалась, повтор...",
                     attempt, attempts, buffer.Count, typeof(TItem).Name);

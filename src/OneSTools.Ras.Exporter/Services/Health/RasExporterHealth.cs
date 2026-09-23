@@ -10,6 +10,7 @@ using OneSTools.Ras.Exporter.Core.Pipeline;
 
 namespace OneSTools.Ras.Exporter.Services.Health;
 
+/// <summary>Снимок здоровья одной кластерной сессии.</summary>
 public sealed record RasClusterHealth(string Key, bool Healthy, DateTimeOffset? LastConnectedAt, string? LastError);
 
 /// <summary>
@@ -32,6 +33,7 @@ public sealed class RasExporterHealthRegistry
     public IReadOnlyCollection<RasClusterHealth> Snapshot() => _states.Values.ToArray();
 }
 
+/// <summary>Health-check: состояние гейта хранилища + RAS-сессий (docs/SECURITY.md §3).</summary>
 public sealed class RasExporterHealthCheck(RasExporterHealthRegistry registry, StorageHealthGate gate) : IHealthCheck
 {
     public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)

@@ -5,6 +5,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Messages;
 
+/// <summary>Запрос SWP-сообщение «GetSessionsRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetSessionsRequest(Guid ClusterId) : IRasRequest<GetSessionsResponse>
 {
     public MessageType MessageType => MessageType.GetSessionsRequest;
@@ -20,6 +21,7 @@ public sealed record GetSessionsRequest(Guid ClusterId) : IRasRequest<GetSession
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetSessionsResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetSessionsResponse : IRasResponse<GetSessionsResponse>
 {
     public IReadOnlyList<SessionInfo> Sessions { get; init; } = Array.Empty<SessionInfo>();
@@ -47,6 +49,7 @@ public sealed record GetSessionsResponse : IRasResponse<GetSessionsResponse>
     }
 }
 
+/// <summary>Запрос SWP-сообщение «GetInfoBaseSessionsRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetInfoBaseSessionsRequest(Guid ClusterId, Guid InfobaseId) : IRasRequest<GetInfoBaseSessionsResponse>
 {
     public MessageType MessageType => MessageType.GetInfoBaseSessionsRequest;
@@ -63,6 +66,7 @@ public sealed record GetInfoBaseSessionsRequest(Guid ClusterId, Guid InfobaseId)
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetInfoBaseSessionsResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetInfoBaseSessionsResponse : IRasResponse<GetInfoBaseSessionsResponse>
 {
     public IReadOnlyList<SessionInfo> Sessions { get; init; } = Array.Empty<SessionInfo>();
@@ -90,6 +94,7 @@ public sealed record GetInfoBaseSessionsResponse : IRasResponse<GetInfoBaseSessi
     }
 }
 
+/// <summary>Запрос SWP-сообщение «GetSessionInfoRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetSessionInfoRequest(Guid ClusterId, Guid SessionId) : IRasRequest<GetSessionInfoResponse>
 {
     public MessageType MessageType => MessageType.GetSessionInfoRequest;
@@ -106,6 +111,7 @@ public sealed record GetSessionInfoRequest(Guid ClusterId, Guid SessionId) : IRa
     }
 }
 
+/// <summary>Ответ SWP-сообщение «GetSessionInfoResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetSessionInfoResponse : IRasResponse<GetSessionInfoResponse>
 {
     public SessionInfo Info { get; init; } = new();
@@ -123,6 +129,7 @@ public sealed record GetSessionInfoResponse : IRasResponse<GetSessionInfoRespons
     }
 }
 
+/// <summary>Запрос SWP-сообщение «TerminateSessionRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record TerminateSessionRequest(Guid ClusterId, Guid SessionId, string? Message = null) : IRasVoidRequest
 {
     public MessageType MessageType => MessageType.TerminateSessionRequest;
