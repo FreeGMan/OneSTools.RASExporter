@@ -42,7 +42,24 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
             .Replace("{ClusterName}", ClickHouseDatabaseNamer.Slugify(clusterName))
             .Replace("{ClusterId}", clusterId.ToString("N"));
 
-        return ClickHouseDatabaseNamer.Slugify(dbName);
+        dbName = ClickHouseDatabaseNamer.Slugify(dbName);
+        return dbName.Length > 128 ? dbName[..128].TrimEnd('_') : dbName;
+    }
+
+    /// <summary>Вторая линия защиты (T7/S4): identifier попадает в DDL текстом — пропускаем только
+    /// [a-z0-9_] длиной ≤128, независимо от источника (Slugify должен гарантировать это всегда).</summary>
+    private static string ValidateDatabaseName(string databaseName)
+    {
+        if (string.IsNullOrEmpty(databaseName) || databaseName.Length > 128)
+            throw new ArgumentException($"Недопустимое имя базы данных (длина): '{databaseName}'", nameof(databaseName));
+
+        foreach (char c in databaseName)
+        {
+            if (c is not ((>= 'a' and <= 'z') or (>= '0' and <= '9') or '_'))
+                throw new ArgumentException($"Недопустимые символы в имени базы данных: '{databaseName}'", nameof(databaseName));
+        }
+
+        return databaseName;
     }
 
     public async Task<bool> ProbeAsync(CancellationToken cancellationToken = default)
@@ -65,6 +82,8 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
 
     public async Task InitializeClusterDatabaseAsync(string databaseName, CancellationToken cancellationToken = default)
     {
+        ValidateDatabaseName(databaseName);
+
         if (!_autoCreateDatabases && !_autoCreateTables) return;
 
         _logger.LogInformation("Инициализация схемы ClickHouse для базы данных: {DbName}", databaseName);
@@ -101,6 +120,9 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
 
     public async Task WriteClusterSummaryBatchAsync(string databaseName, IReadOnlyList<ClusterSummaryMetricItem> items, CancellationToken cancellationToken = default)
     {
+        ValidateDatabaseName(databaseName);
+
+
         if (items.Count == 0) return;
 
         using var connection = new ClickHouseConnection(_connectionString);
@@ -154,6 +176,9 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
 
     public async Task WriteSessionsBatchAsync(string databaseName, IReadOnlyList<SessionMetricItem> items, CancellationToken cancellationToken = default)
     {
+        ValidateDatabaseName(databaseName);
+
+
         if (items.Count == 0) return;
 
         using var connection = new ClickHouseConnection(_connectionString);
@@ -249,6 +274,9 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
 
     public async Task WriteProcessesBatchAsync(string databaseName, IReadOnlyList<ProcessMetricItem> items, CancellationToken cancellationToken = default)
     {
+        ValidateDatabaseName(databaseName);
+
+
         if (items.Count == 0) return;
 
         using var connection = new ClickHouseConnection(_connectionString);
@@ -308,6 +336,9 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
 
     public async Task WriteConnectionsBatchAsync(string databaseName, IReadOnlyList<ConnectionMetricItem> items, CancellationToken cancellationToken = default)
     {
+        ValidateDatabaseName(databaseName);
+
+
         if (items.Count == 0) return;
 
         using var connection = new ClickHouseConnection(_connectionString);
@@ -353,6 +384,9 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
 
     public async Task WriteLocksBatchAsync(string databaseName, IReadOnlyList<LockMetricItem> items, CancellationToken cancellationToken = default)
     {
+        ValidateDatabaseName(databaseName);
+
+
         if (items.Count == 0) return;
 
         using var connection = new ClickHouseConnection(_connectionString);
