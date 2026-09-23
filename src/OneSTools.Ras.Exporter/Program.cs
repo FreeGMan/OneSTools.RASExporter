@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System.Collections.Generic;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
@@ -17,6 +19,32 @@ var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
     Args = args,
     ContentRootPath = AppContext.BaseDirectory
 });
+
+// appsettings.local.json (gitignored) — локальные секреты/переопределения. Вставляется НИЖЕ
+// переменных окружения и аргументов: приоритет base < local < user-secrets(Dev) < env < args (T7/S3).
+// appsettings.local.json (gitignored) — локальные секреты/переопределения. Хост добавляет
+// env/cmd-источники дважды (bootstrap и основные); вставляем local перед ПОСЛЕДНИМ env/cmd,
+// чтобы приоритет был: base-appsettings < local < env < args (T7/S3).
+{
+    var configSources = builder.Configuration.Sources;
+    int lastEnvCmd = -1;
+    for (int i = 0; i < configSources.Count; i++)
+    {
+        string sourceName = configSources[i].GetType().Name;
+        if (sourceName is "EnvironmentVariablesConfigurationSource" or "CommandLineConfigurationSource")
+            lastEnvCmd = i;
+    }
+
+    int before = configSources.Count;
+    builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: false);
+
+    if (lastEnvCmd >= 0 && lastEnvCmd < before)
+    {
+        var localSource = (IConfigurationSource)configSources[before];
+        configSources.RemoveAt(before);
+        configSources.Insert(lastEnvCmd, localSource);
+    }
+}
 
 builder.Services
     .AddOptions<RasExporterSettings>()
