@@ -1,5 +1,7 @@
 # AGENT.md — Инструкции для основного агента разработки
 
+> Пользователю: общий обзор, запуск и конфигурация — в **README.md**. Здесь — регламент разработки.
+
 > Ты — основной агент разработки проекта **OneSTools.Ras**: высокопроизводительный инструмент
 > сбора метрик с сервера RAS («1С:Предприятие») по протоколу SWP и экспорта в ClickHouse.
 > Стек — C# / .NET 8. Серверное окружение — devcontainer (см. `.devcontainer/`).
@@ -68,15 +70,18 @@ proto-контрактами (`reference/v8platform-protos/`) и Go-кодеко
 |---|---|---|---|
 | `dotnet-dev` | Контейнер разработки (.NET 8 SDK + opencode CLI) | — | — |
 | `clickhouse` | Хранилище для dev/интеграционных тестов | `clickhouse:8123`, `clickhouse:9000` | `localhost:8123`, `localhost:9000` |
-| `mock-ras` | Эмулятор RAS (SWP handshake) | `mock-ras:1545` | `localhost:1545` |
-| `ras` | Реальный RAS-сервер 1С 8.3 (ras-minimal/, прокси к ragent) | `ras:1545` | `localhost:1546` |
+| `mock-ras` | Эмулятор RAS (SWP handshake, protocol-fidelity) | `mock-ras:1545` | `localhost:1545` |
+| `1c-test-server` | Реальный стенд: сервер 1С + ragent + RAS 8.3.25 (внешний контейнер той же docker-сети; базовый образ — `ras-minimal/`) | `1c-test-server:1545` (`ragent` 1540) | по пробросу стенда |
 
 - VSCode: расширения C# Dev Kit, dotnet-test-explorer, Docker.
 - Команды (внутри `dotnet-dev`):
   - `dotnet build OneSTools.Ras.sln`
   - `dotnet test OneSTools.Ras.sln`
-  - `dotnet run --project src/OneSTools.Ras.MockServer` — mock на `:1545`
-  - `dotnet run --project src/OneSTools.Ras.Exporter` — служба экспорта (читает `appsettings.json`)
+  - `dotnet run --project src/OneSTools.Ras.MockServer -- <port> [maxVersion]` — mock на `:port`
+  - `dotnet run --project src/OneSTools.Ras.Exporter` — служба экспорта (appsettings у бинарника; local < env < args)
+  - `dotnet run --project src/OneSTools.Ras.LoadSim -- --mode all|chaos|…` — нагрузка/хаос, JSON-отчёты
+  - `bash tools/security-check.sh` — аудит зависимостей/конфига (перед ИБ-проверкой)
+  - Тесты живого стенда: `RAC_TEST_RAS_HOST`/`RAC_TEST_RAS_PORT` (по умолчанию `1c-test-server:1545`)
 - Подмена mock-ras реальным стендом: скопировать `.devcontainer/docker-compose.override.example.yml`
   в `docker-compose.override.yml`, указать адрес стенда, сменить `Host` в `appsettings.json`.
 
@@ -148,18 +153,15 @@ OneSTools.Ras.sln
 
 ---
 
-## 9. Порядок реализации (осталось сделать)
+## 9. Статус реализации
 
-1. **Wire-кодеки** в `Client/Wire` (`RasReader`/`RasWriter`, 17 примитивов) — по `docs/CODEC_SPEC.md`,
-   юнит-тесты по hex-примерам.
-2. **Transport** в `Client/Transport`: сокет, `Negotiate` (raw 8 байт: magic+2×short), фрейминг
-   `[type][size LEB128][body]`, `Connect`/`ConnectAck`, keep-alive (type 16), zlib/deflate.
-3. **Endpoint-слой**: `EndpointOpen`/`OpenAck`/`Message`/`Failure`, корреляция по `endpointId`.
-4. **API-сообщения и модели**: 62 COVERED — порядок полей из `reference/v8platform-protos/`;
-   22 GAP — по декомпиляту через субагента ИЛИ документируются в GAP_ANALYSIS.
-5. **Exporter.Core**: `Collectors` (периодический опрос), `Pipeline` (батчинг), `ClickHouseStorage`.
-6. **Exporter CLI**: Worker Service, HealthChecks, graceful shutdown, прогон против `mock-ras` + `clickhouse`.
-7. Проверка на реальном стенде (см. раздел 4) и замеры производительности.
+Этапы 1–6 (кодеки, транспорт, endpoint-слой, 62 API-сообщения, Exporter.Core, Worker Service +
+HealthChecks) — **реализованы и проверены живым RAS 8.3.25.1520** (см. README.md,
+docs/SECURITY.md §3, замеры LoadSim). Остаток:
+
+1. 22 GAP-метода — через субагента `rac-reverser` по декомпиляту (GAP_ANALYSIS).
+2. SASL/TLS — при выходе за пределы изолированного контура (docs/TRANSPORT_SPEC.md §5–6).
+3. Стенд с реальными инфобазами/нагрузкой — верификация версионированных полей SessionInfo и т.п.
 
 ---
 
