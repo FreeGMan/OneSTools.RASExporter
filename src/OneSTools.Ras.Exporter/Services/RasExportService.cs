@@ -11,6 +11,7 @@ using OneSTools.Ras.Client.Models;
 using OneSTools.Ras.Exporter.Configuration;
 using OneSTools.Ras.Exporter.Core.Collectors;
 using OneSTools.Ras.Exporter.Core.Pipeline;
+using OneSTools.Ras.Exporter.Services.Health;
 using OneSTools.Ras.Exporter.Core.Storage;
 
 namespace OneSTools.Ras.Exporter.Services;
@@ -27,6 +28,7 @@ public sealed class RasExportService : BackgroundService
     private readonly IMetricsStorage _storage;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<RasExportService> _logger;
+    private readonly RasExporterHealthRegistry _health;
 
     public RasExportService(
         IOptions<RasExporterSettings> rasSettings,
@@ -34,13 +36,15 @@ public sealed class RasExportService : BackgroundService
         IMetricsStorage storage,
         MetricsBatchingPipeline pipeline,
         ILoggerFactory loggerFactory,
-        ILogger<RasExportService> logger)
+        ILogger<RasExportService> logger,
+        RasExporterHealthRegistry health)
     {
         _rasSettings = rasSettings.Value;
         _storage = storage;
         _pipeline = pipeline;
         _loggerFactory = loggerFactory;
         _logger = logger;
+        _health = health;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -87,6 +91,7 @@ public sealed class RasExportService : BackgroundService
         var running = new Dictionary<(Guid, string), CancellationTokenSource>();
         var allCts = new List<CancellationTokenSource>();
         var clusterTasks = new List<Task>();
+        var discoveryBackoff = new BackoffPolicy();
 
         try
         {
@@ -96,6 +101,7 @@ public sealed class RasExportService : BackgroundService
                 try
                 {
                     targets = await DiscoverTargetsAsync(server, stoppingToken);
+                    discoveryBackoff.Reset();
                     serverLogger.LogInformation("Обнаружено {Count} целевых кластеров на сервере {Name}", targets.Count, server.Name);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -104,8 +110,9 @@ public sealed class RasExportService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    serverLogger.LogError(ex, "Ошибка обнаружения кластеров на {Name}. Повтор через 5 секунд...", server.Name);
-                    try { await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken); } catch (OperationCanceledException) { break; }
+                    TimeSpan retryIn = discoveryBackoff.NextDelay();
+                    serverLogger.LogError(ex, "Ошибка обнаружения кластеров на {Name}. Повтор через {Delay:F1} c...", server.Name, retryIn.TotalSeconds);
+                    try { await Task.Delay(retryIn, stoppingToken); } catch (OperationCanceledException) { break; }
                     continue;
                 }
 
@@ -171,6 +178,8 @@ public sealed class RasExportService : BackgroundService
     {
         var token = clusterCts.Token;
         var clusterLogger = _loggerFactory.CreateLogger($"Cluster.{target.ClusterName}");
+        var backoff = new BackoffPolicy();
+        string healthKey = $"{server.Name}/{target.ClusterName}";
 
         while (!token.IsCancellationRequested)
         {
@@ -187,6 +196,8 @@ public sealed class RasExportService : BackgroundService
 
                 // Реальный RAS требует явный authenticateCluster даже с пустыми учётками (TODO.md п.8).
                 await client.AuthenticateClusterAsync(target.ClusterId, target.User ?? string.Empty, target.Password ?? string.Empty, token);
+                backoff.Reset();
+                _health.MarkConnected(healthKey);
                 clusterLogger.LogInformation("Сессия RAS для кластера {ClusterName} установлена", target.ClusterName);
 
                 var worker = new ClusterMetricsWorker(
@@ -200,8 +211,10 @@ public sealed class RasExportService : BackgroundService
             }
             catch (Exception ex)
             {
-                clusterLogger.LogError(ex, "Ошибка сессии RAS кластера {ClusterName}. Переподключение через 5 секунд...", target.ClusterName);
-                try { await Task.Delay(TimeSpan.FromSeconds(5), token); } catch (OperationCanceledException) { break; }
+                _health.MarkFailed(healthKey, ex.Message);
+                TimeSpan retryIn = backoff.NextDelay();
+                clusterLogger.LogError(ex, "Ошибка сессии RAS кластера {ClusterName}. Переподключение через {Delay:F1} c...", target.ClusterName, retryIn.TotalSeconds);
+                try { await Task.Delay(retryIn, token); } catch (OperationCanceledException) { break; }
             }
             finally
             {

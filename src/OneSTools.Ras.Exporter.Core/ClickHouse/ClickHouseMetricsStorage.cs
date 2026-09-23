@@ -39,11 +39,10 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
     public string GetDatabaseName(string clusterName, Guid clusterId)
     {
         string dbName = _databaseTemplate
-            .Replace("{ClusterName}", clusterName)
+            .Replace("{ClusterName}", ClickHouseDatabaseNamer.Slugify(clusterName))
             .Replace("{ClusterId}", clusterId.ToString("N"));
 
-        // Clean up any non-alphanumeric chars (except underscore)
-        return new string(dbName.Select(c => char.IsLetterOrDigit(c) || c == '_' ? c : '_').ToArray());
+        return ClickHouseDatabaseNamer.Slugify(dbName);
     }
 
     public async Task InitializeClusterDatabaseAsync(string databaseName, CancellationToken cancellationToken = default)

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OneSTools.Ras.Exporter.Configuration;
@@ -7,6 +8,7 @@ using OneSTools.Ras.Exporter.Core.ClickHouse;
 using OneSTools.Ras.Exporter.Core.Pipeline;
 using OneSTools.Ras.Exporter.Core.Storage;
 using OneSTools.Ras.Exporter.Services;
+using OneSTools.Ras.Exporter.Services.Health;
 
 // Content root = каталог исполняемого файла: appsettings.json всегда подхватывается
 // рядом с бинарником (publish) и из выходного каталога (dotnet run из любой директории).
@@ -50,6 +52,18 @@ builder.Services.AddSingleton(sp =>
         TimeSpan.FromSeconds(chSettings.FlushIntervalSeconds),
         logger);
 });
+
+builder.Services.AddSingleton<RasExporterHealthRegistry>();
+
+builder.Services.AddHealthChecks()
+    .AddCheck<RasExporterHealthCheck>("ras-cluster-sessions");
+
+builder.Services.Configure<HealthCheckPublisherOptions>(options =>
+{
+    options.Delay = TimeSpan.FromSeconds(10);
+    options.Period = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddSingleton<IHealthCheckPublisher, LoggingHealthCheckPublisher>();
 
 builder.Services.AddHostedService<RasExportService>();
 
