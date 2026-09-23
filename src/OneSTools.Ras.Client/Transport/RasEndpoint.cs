@@ -125,7 +125,8 @@ public sealed class RasEndpoint : IAsyncDisposable
         {
             // Ignore on dispose
         }
-        _callGate.Dispose();
+        // _callGate не освобождается: ожидающий в WaitAsync гонял бы с ObjectDisposedException;
+        // SemaphoreSlim без событий не держит неуправляемых ресурсов.
     }
 
     public override string ToString() => $"RasEndpoint(Id={EndpointId}, Service={ServiceId}, Compression={UseCompression})";

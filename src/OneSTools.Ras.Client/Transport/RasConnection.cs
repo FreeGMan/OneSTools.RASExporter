@@ -60,6 +60,9 @@ public sealed class RasConnection : IAsyncDisposable
 
     public async Task ConnectAsync(Dictionary<string, object?>? parameters = null, CancellationToken cancellationToken = default)
     {
+        if (_readLoopTask is not null)
+            throw new InvalidOperationException("RasConnection уже подключён; повторное подключение или использование после закрытия не поддерживается.");
+
         _logger.LogInformation("Connecting to {EndPoint}...", _remoteEndPoint);
         
         _tcpClient = new TcpClient();
@@ -391,6 +394,12 @@ public sealed class RasConnection : IAsyncDisposable
                 var endpoint = new RasEndpoint(endpointId.Value, serviceId, this, useCompression);
                 tcs.TrySetResult(endpoint);
             }
+            else
+            {
+                // Open без ожидающей заявки (гонка отмены): эндпоинт на сервере осиротел;
+                // соединение в этом сценарии закрывается guard-ом cancel-after-send.
+                _logger.LogWarning("EndpointOpenAck для неизвестного сервиса {Service} (id={Id}) — осиротевший эндпоинт", serviceId, endpointId);
+            }
         }
     }
 
@@ -482,22 +491,28 @@ public sealed class RasConnection : IAsyncDisposable
             cause = new RasException("Disconnected by remote host");
         }
 
+        // Сервер объявил конец соединения (Java: failure connectFuture + channel.close()).
+        Volatile.Write(ref _closed, 1);
+        _logger.LogWarning(cause, "Сервер прислал DISCONNECT — соединение закрывается");
         FailAllPending(cause);
+        DisposeAsynchronously();
     }
 
     private void FailAllPending(Exception ex)
     {
-        foreach (var (_, tcs) in _pendingOpenEndpoints)
+        // TryRemove ДО SetException: иначе заявка, добавленная в момент перебора, была бы
+        // удалена Clear()-ом незавершённой и её ожидающий повис бы до таймаута.
+        foreach (var key in _pendingOpenEndpoints.Keys.ToArray())
         {
-            tcs.TrySetException(ex);
+            if (_pendingOpenEndpoints.TryRemove(key, out var tcs))
+                tcs.TrySetException(ex);
         }
-        _pendingOpenEndpoints.Clear();
 
-        foreach (var (_, tcs) in _pendingRequests)
+        foreach (var key in _pendingRequests.Keys.ToArray())
         {
-            tcs.TrySetException(ex);
+            if (_pendingRequests.TryRemove(key, out var tcs))
+                tcs.TrySetException(ex);
         }
-        _pendingRequests.Clear();
     }
 
     private async Task KeepAliveLoopAsync(CancellationToken cancellationToken)
@@ -518,7 +533,7 @@ public sealed class RasConnection : IAsyncDisposable
         {
             // Normal shutdown
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             _logger.LogError(ex, "Keep-alive loop error");
         }
