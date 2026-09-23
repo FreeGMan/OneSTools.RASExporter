@@ -37,7 +37,7 @@ public sealed record GetWorkingServersResponse : IRasResponse<GetWorkingServersR
 
     public static GetWorkingServersResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<ServerInfo>(count);
         for (int i = 0; i < count; i++)
         {
@@ -79,7 +79,7 @@ public sealed record GetClusterManagersResponse : IRasResponse<GetClusterManager
 
     public static GetClusterManagersResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<ManagerInfo>(count);
         for (int i = 0; i < count; i++)
         {
@@ -121,7 +121,7 @@ public sealed record GetClusterServicesResponse : IRasResponse<GetClusterService
 
     public static GetClusterServicesResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<ServiceInfo>(count);
         for (int i = 0; i < count; i++)
         {

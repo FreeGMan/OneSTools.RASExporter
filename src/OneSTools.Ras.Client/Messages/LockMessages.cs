@@ -37,7 +37,7 @@ public sealed record GetLocksResponse : IRasResponse<GetLocksResponse>
 
     public static GetLocksResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<LockInfo>(count);
         for (int i = 0; i < count; i++)
         {
@@ -80,7 +80,7 @@ public sealed record GetInfoBaseLocksResponse : IRasResponse<GetInfoBaseLocksRes
 
     public static GetInfoBaseLocksResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<LockInfo>(count);
         for (int i = 0; i < count; i++)
         {
@@ -123,7 +123,7 @@ public sealed record GetConnectionLocksResponse : IRasResponse<GetConnectionLock
 
     public static GetConnectionLocksResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<LockInfo>(count);
         for (int i = 0; i < count; i++)
         {
@@ -166,7 +166,7 @@ public sealed record GetSessionLocksResponse : IRasResponse<GetSessionLocksRespo
 
     public static GetSessionLocksResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<LockInfo>(count);
         for (int i = 0; i < count; i++)
         {

@@ -37,7 +37,7 @@ public sealed record GetInfoBasesShortResponse : IRasResponse<GetInfoBasesShortR
 
     public static GetInfoBasesShortResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<InfobaseSummaryInfo>(count);
         for (int i = 0; i < count; i++)
         {
@@ -79,7 +79,7 @@ public sealed record GetInfoBasesResponse : IRasResponse<GetInfoBasesResponse>
 
     public static GetInfoBasesResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<InfobaseInfo>(count);
         for (int i = 0; i < count; i++)
         {

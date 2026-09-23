@@ -37,7 +37,7 @@ public sealed record GetConnectionsShortResponse : IRasResponse<GetConnectionsSh
 
     public static GetConnectionsShortResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<ConnectionInfo>(count);
         for (int i = 0; i < count; i++)
         {
@@ -80,7 +80,7 @@ public sealed record GetInfoBaseConnectionsShortResponse : IRasResponse<GetInfoB
 
     public static GetInfoBaseConnectionsShortResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<ConnectionInfo>(count);
         for (int i = 0; i < count; i++)
         {

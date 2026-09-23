@@ -37,7 +37,7 @@ public sealed record GetWorkingProcessesResponse : IRasResponse<GetWorkingProces
 
     public static GetWorkingProcessesResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<ProcessInfo>(count);
         for (int i = 0; i < count; i++)
         {

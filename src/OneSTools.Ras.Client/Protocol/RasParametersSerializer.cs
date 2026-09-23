@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using OneSTools.Ras.Client.Exceptions;
 using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Protocol;
@@ -22,6 +23,8 @@ public static class RasParametersSerializer
         int? count = reader.ReadNullableSize();
         if (count is null)
             return parameters;
+        if (count.Value > RasWireConstants.MaxListSize || count.Value > reader.Remaining)
+            throw new RasProtocolException($"parameters count out of bounds: {count.Value}");
 
         for (int i = 0; i < count.Value; i++)
         {

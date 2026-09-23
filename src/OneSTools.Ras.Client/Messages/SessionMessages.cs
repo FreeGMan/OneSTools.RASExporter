@@ -37,7 +37,7 @@ public sealed record GetSessionsResponse : IRasResponse<GetSessionsResponse>
 
     public static GetSessionsResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<SessionInfo>(count);
         for (int i = 0; i < count; i++)
         {
@@ -80,7 +80,7 @@ public sealed record GetInfoBaseSessionsResponse : IRasResponse<GetInfoBaseSessi
 
     public static GetInfoBaseSessionsResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<SessionInfo>(count);
         for (int i = 0; i < count; i++)
         {

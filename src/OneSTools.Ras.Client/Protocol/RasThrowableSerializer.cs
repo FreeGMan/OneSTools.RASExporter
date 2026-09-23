@@ -38,16 +38,21 @@ public static class RasThrowableSerializer
         WriteThrowable(ref writer, exception.InnerException);
     }
 
-    public static Exception? ReadThrowable(ref RasReader reader)
+    public static Exception? ReadThrowable(ref RasReader reader) => ReadThrowableCore(ref reader, 0);
+
+    private static Exception? ReadThrowableCore(ref RasReader reader, int depth)
     {
+        if (depth > RasWireConstants.MaxThrowableDepth)
+            throw new RasProtocolException("throwable cause chain too deep");
+
         string? className = reader.ReadString();
         if (className is null)
             return null;
 
         string message = reader.ReadString() ?? string.Empty;
-        int size = reader.ReadSize();
+        int size = reader.ReadListCount();
 
-        var frames = new List<RasRemoteStackFrame>(size);
+        var frames = new List<RasRemoteStackFrame>(Math.Min(size, 256));
         for (int i = 0; i < size; i++)
         {
             string clazz = reader.ReadString() ?? string.Empty;
@@ -57,7 +62,7 @@ public static class RasThrowableSerializer
             frames.Add(new RasRemoteStackFrame(clazz, method, fileName, line));
         }
 
-        Exception? cause = ReadThrowable(ref reader);
+        Exception? cause = ReadThrowableCore(ref reader, depth + 1);
         return new RasRemoteException(className, message, frames, cause);
     }
 }

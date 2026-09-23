@@ -40,9 +40,28 @@ public static class RasWireConstants
     public const int SizeOfUuid = 16;
     public const int SizeOfTime = 8;
 
-    /// <summary>
-    /// Число 100-наносекундных тиков между 0001-01-01 (база .NET) и
+    /// <summary>Число 100-наносекундных тиков между 0001-01-01 (база .NET) и
     /// 1970-01-01T00:00:00Z — используется в time-кодеке (R8-время от 0001-01-01).
     /// </summary>
     public const long AgeDelta = 621355968000000;
+
+    // ----Защитные (docs/SECURITY.md, hardening против повреждённого/враждебного потока) ----
+
+    /// <summary>Максимум байт в varint size (int32: 5 групп по 7 бит + контроль переполнения).</summary>
+    public const int MaxSizeVarIntBytes = 5;
+
+    /// <summary>Максимум байт в varint nullable_size (6+7k бит).</summary>
+    public const int MaxNullableSizeVarIntBytes = 5;
+
+    /// <summary>Потолок длины bytes/string из wire (64 MiB): защита от OOM на битом length.</summary>
+    public const int MaxBytesLength = 64 * 1024 * 1024;
+
+    /// <summary>Потолок числа элементов в size-prefix списках.</summary>
+    public const int MaxListSize = 1_000_000;
+
+    /// <summary>Максимальный SWP-кадр (256 MiB).</summary>
+    public const int MaxFrameSize = 256 * 1024 * 1024;
+
+    /// <summary>Максимальная глубина цепочки cause в сериализованных throwable.</summary>
+    public const int MaxThrowableDepth = 32;
 }

@@ -92,7 +92,7 @@ public sealed record GetAgentAdminsResponse : IRasResponse<GetAgentAdminsRespons
 
     public static GetAgentAdminsResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<AdminInfo>(count);
         for (int i = 0; i < count; i++)
         {
@@ -129,7 +129,7 @@ public sealed record GetClusterAdminsResponse : IRasResponse<GetClusterAdminsRes
 
     public static GetClusterAdminsResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<AdminInfo>(count);
         for (int i = 0; i < count; i++)
         {

@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.IO;
 using System.Text;
+using OneSTools.Ras.Client.Exceptions;
 using OneSTools.Ras.Client.Protocol;
 
 namespace OneSTools.Ras.Client.Wire;
@@ -51,11 +52,16 @@ public ref struct RasReader
     {
         int cur = ReadByte();
         int size = cur & RasWireConstants.LsbMask; // 0x7F
-        
-        for (int shift = 7; (cur & RasWireConstants.NextMask) != 0; shift += 7)
+
+        for (int i = 1, shift = 7; (cur & RasWireConstants.NextMask) != 0; i++, shift += 7)
         {
+            if (i > RasWireConstants.MaxSizeVarIntBytes - 1)
+                throw new RasProtocolException("size varint too long");
             cur = ReadByte();
-            size += (cur & RasWireConstants.LsbMask) << shift;
+            int part = (cur & RasWireConstants.LsbMask) << shift;
+            if (part < 0 || size > int.MaxValue - part)
+                throw new RasProtocolException("size varint overflow");
+            size += part;
         }
 
         return size;
@@ -75,13 +81,17 @@ public ref struct RasReader
         if ((cur & RasWireConstants.NullNextMask) != 0) // 0x40
         {
             int shift = 6;
-            cur = ReadByte();
-            size += (cur & RasWireConstants.LsbMask) << shift;
-
-            for (shift += 7; (cur & RasWireConstants.NextMask) != 0; shift += 7)
+            for (int i = 1; ; i++, shift += 7)
             {
+                if (i > RasWireConstants.MaxNullableSizeVarIntBytes - 1)
+                    throw new RasProtocolException("nullable_size varint too long");
                 cur = ReadByte();
-                size += (cur & RasWireConstants.LsbMask) << shift;
+                int part = (cur & RasWireConstants.LsbMask) << shift;
+                if (part < 0 || size > int.MaxValue - part)
+                    throw new RasProtocolException("nullable_size varint overflow");
+                size += part;
+                if ((cur & RasWireConstants.NextMask) == 0)
+                    break;
             }
         }
 
@@ -91,7 +101,11 @@ public ref struct RasReader
     public byte[] ReadBytes(int length)
     {
         if (length == 0) return Array.Empty<byte>();
-        
+        if (length < 0 || length > RasWireConstants.MaxBytesLength)
+            throw new RasProtocolException($"bytes length out of bounds: {length}");
+        if (length > Remaining)
+            throw new EndOfStreamException("bytes length exceeds remaining data");
+
         var bytes = new byte[length];
         if (!_reader.TryCopyTo(bytes))
             throw new EndOfStreamException();
@@ -110,6 +124,8 @@ public ref struct RasReader
         int? length = ReadNullableSize();
         if (length is null) return null;
         if (length.Value == 0) return string.Empty;
+        if (length.Value > RasWireConstants.MaxBytesLength)
+            throw new RasProtocolException($"string length out of bounds: {length.Value}");
 
         if (_reader.UnreadSpan.Length >= length.Value)
         {
@@ -186,6 +202,18 @@ public ref struct RasReader
 
     public int Consumed => (int)_reader.Consumed;
     public int Remaining => (int)_reader.Remaining;
+
+    /// <summary>Длина size-prefix списка с проверками: потолок MaxListSize и согласованность
+    /// с остатком потока (каждый элемент занимает минимум 1 байт).</summary>
+    public int ReadListCount()
+    {
+        int count = ReadSize();
+        if (count > RasWireConstants.MaxListSize)
+            throw new RasProtocolException($"list size out of bounds: {count}");
+        if (count > Remaining)
+            throw new EndOfStreamException("list size exceeds remaining data");
+        return count;
+    }
 
     public byte[] ReadRemainingBytes()
     {

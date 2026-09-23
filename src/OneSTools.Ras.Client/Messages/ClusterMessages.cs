@@ -34,7 +34,7 @@ public sealed record GetClustersResponse : IRasResponse<GetClustersResponse>
 
     public static GetClustersResponse Deserialize(ref RasReader reader, int version = 0)
     {
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var list = new List<ClusterInfo>(count);
         for (int i = 0; i < count; i++)
         {

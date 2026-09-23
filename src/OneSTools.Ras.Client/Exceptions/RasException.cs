@@ -27,3 +27,13 @@ public sealed class RasRemoteException : RasException
 }
 
 public readonly record struct RasRemoteStackFrame(string ClassName, string MethodName, string? FileName, int LineNumber);
+
+/// <summary>
+/// Повреждённые/враждебные данные в wire-потоке: отрицательная/запредельная длина,
+/// переполнение varint, превышение лимитов протокола. Безопасный отказ вместо OOM/StackOverflow.
+/// </summary>
+public class RasProtocolException : RasException
+{
+    public RasProtocolException(string message) : base(message) { }
+    public RasProtocolException(string message, Exception? innerException) : base(message, innerException) { }
+}

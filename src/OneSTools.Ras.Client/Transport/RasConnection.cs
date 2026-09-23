@@ -15,6 +15,7 @@ using OneSTools.Ras.Client.Exceptions;
 using OneSTools.Ras.Client.Protocol;
 using OneSTools.Ras.Client.Wire;
 
+
 namespace OneSTools.Ras.Client.Transport;
 
 public sealed class RasConnection : IAsyncDisposable
@@ -564,6 +565,9 @@ public sealed class RasConnection : IAsyncDisposable
         }
 
         if (!sizeRead) return false;
+
+        if (size < 0 || size > RasWireConstants.MaxFrameSize)
+            throw new RasProtocolException($"SWP frame size out of bounds: {size}");
 
         if (reader.Remaining < size) return false;
 
