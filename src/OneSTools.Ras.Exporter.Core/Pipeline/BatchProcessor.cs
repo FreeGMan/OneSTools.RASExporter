@@ -12,25 +12,41 @@ namespace OneSTools.Ras.Exporter.Core.Pipeline;
 /// Обобщенный буферизующий процессор на базе System.Threading.Channels,
 /// сбрасывающий накопленные данные порциями по размеру или по интервалу времени.
 /// </summary>
+/// <remarks>
+/// Семантика записи (TODO.md T5): запись батча никогда не отменяется током останова —
+/// при сбое предельное число повторов с бэкоффом, при исчерпании попыток батч отбрасывается
+/// с ошибкой в лог. При остановке сначала сбрасывается всё недописанное (с укороченным
+/// числом попыток и grace-таймаутом), только затем цикл завершается.
+/// </remarks>
 public sealed class BatchProcessor<TItem> : IAsyncDisposable
 {
+    private const int ShutdownFlushAttempts = 2;
+    private static readonly TimeSpan ShutdownFlushGrace = TimeSpan.FromSeconds(5);
+
     private readonly Channel<TItem> _channel;
     private readonly Func<IReadOnlyList<TItem>, CancellationToken, Task> _writeAction;
     private readonly int _batchSize;
     private readonly TimeSpan _flushInterval;
+    private readonly int _flushAttempts;
+    private readonly TimeSpan _flushGrace;
     private readonly ILogger _logger;
     private readonly CancellationTokenSource _cts = new();
     private Task? _processingTask;
+    private int _disposeState;
 
     public BatchProcessor(
         Func<IReadOnlyList<TItem>, CancellationToken, Task> writeAction,
         int batchSize = 10000,
         TimeSpan? flushInterval = null,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        int flushAttempts = 3,
+        TimeSpan? flushGrace = null)
     {
         _writeAction = writeAction;
         _batchSize = batchSize > 0 ? batchSize : 10000;
         _flushInterval = flushInterval ?? TimeSpan.FromSeconds(5);
+        _flushAttempts = Math.Max(1, flushAttempts);
+        _flushGrace = flushGrace ?? TimeSpan.FromSeconds(30);
         _logger = logger ?? NullLogger.Instance;
         _channel = Channel.CreateUnbounded<TItem>(new UnboundedChannelOptions { SingleReader = true });
     }
@@ -48,50 +64,58 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
     private async Task ProcessLoopAsync(CancellationToken cancellationToken)
     {
         var buffer = new List<TItem>(_batchSize);
-        var timeoutCts = new CancellationTokenSource();
 
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                // Wait for either item or timeout
-                timeoutCts.CancelAfter(_flushInterval);
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+                var timeoutCts = new CancellationTokenSource();
 
-                try
+                bool timedOut = false;
+                bool channelCompleted = false;
+
+                // Ожидание: набить батч до размера либо до истечения интервала.
+                timeoutCts.CancelAfter(_flushInterval);
+                using (var waitCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
                 {
-                    while (buffer.Count < _batchSize)
+                    try
                     {
-                        if (await _channel.Reader.WaitToReadAsync(linkedCts.Token))
+                        while (buffer.Count < _batchSize)
                         {
-                            while (buffer.Count < _batchSize && _channel.Reader.TryRead(out var item))
+                            if (await _channel.Reader.WaitToReadAsync(waitCts.Token))
                             {
-                                buffer.Add(item);
+                                while (buffer.Count < _batchSize && _channel.Reader.TryRead(out var item))
+                                {
+                                    buffer.Add(item);
+                                }
+                            }
+                            else
+                            {
+                                channelCompleted = true;
+                                break;
                             }
                         }
-                        else
-                        {
-                            break;
-                        }
                     }
-                }
-                catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-                {
-                    // Flush interval timer ticked
-                }
-
-                if (buffer.Count > 0)
-                {
-                    await FlushBufferAsync(buffer, cancellationToken);
+                    catch (OperationCanceledException)
+                    {
+                        timedOut = timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
+                    }
                 }
 
                 timeoutCts.Dispose();
-                timeoutCts = new CancellationTokenSource();
+
+                if (buffer.Count > 0)
+                {
+                    // Запись не привязана к cancellationToken: сброс может начаться уже после
+                    // запроса остановки, данные терять нельзя (см. remarks).
+                    await FlushWithRetryAsync(buffer, isShutdown: false);
+                }
+
+                if (channelCompleted)
+                {
+                    break;
+                }
             }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Shutdown requested
         }
         catch (Exception ex)
         {
@@ -99,49 +123,52 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
         }
         finally
         {
-            timeoutCts.Dispose();
-            // Drain remaining items on shutdown
             while (_channel.Reader.TryRead(out var item))
             {
                 buffer.Add(item);
             }
-            if (buffer.Count > 0)
+
+            await FlushWithRetryAsync(buffer, isShutdown: true);
+        }
+    }
+
+    private async Task FlushWithRetryAsync(List<TItem> buffer, bool isShutdown)
+    {
+        if (buffer.Count == 0)
+            return;
+
+        int attempts = isShutdown ? Math.Min(_flushAttempts, ShutdownFlushAttempts) : _flushAttempts;
+        var grace = isShutdown ? ShutdownFlushGrace : _flushGrace;
+
+        for (int attempt = 1; ; attempt++)
+        {
+            using var attemptCts = new CancellationTokenSource(grace);
+            try
             {
-                try
-                {
-                    await FlushBufferAsync(buffer, CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Ошибка при финальном сбросе батча {Type}", typeof(TItem).Name);
-                }
+                await _writeAction(buffer, attemptCts.Token);
+                buffer.Clear();
+                return;
+            }
+            catch (Exception ex) when (attempt < attempts)
+            {
+                _logger.LogWarning(ex, "Попытка {Attempt}/{Total} записи батча ({Count} эл.) {Type} не удалась, повтор...",
+                    attempt, attempts, buffer.Count, typeof(TItem).Name);
+                await Task.Delay(TimeSpan.FromSeconds(attempt), CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Запись батча ({Count} эл.) {Type} не удалась после {Total} попыток — батч отброшен",
+                    buffer.Count, typeof(TItem).Name, attempts);
+                buffer.Clear();
+                return;
             }
         }
     }
-
-    private async Task FlushBufferAsync(List<TItem> buffer, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _writeAction(buffer, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка при записи батча ({Count} элементов) {Type}", buffer.Count, typeof(TItem).Name);
-        }
-        finally
-        {
-            buffer.Clear();
-        }
-    }
-
-    private int _disposeState; // 0 = жив, 1 = dispose запрошен, 2 = завершён
 
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.CompareExchange(ref _disposeState, 1, 0) != 0)
         {
-            // Повторный dispose: ждём завершения первого.
             while (Volatile.Read(ref _disposeState) != 2)
             {
                 await Task.Delay(10).ConfigureAwait(false);
