@@ -27,21 +27,26 @@ public sealed class MetricsBatchingPipeline : IAsyncDisposable
         IMetricsStorage storage,
         int batchSize = 10000,
         TimeSpan? flushInterval = null,
-        ILogger<MetricsBatchingPipeline>? logger = null)
+        ILogger<MetricsBatchingPipeline>? logger = null,
+        StorageHealthGate? gate = null)
     {
         _storage = storage;
         _logger = logger ?? NullLogger<MetricsBatchingPipeline>.Instance;
 
+        Action<bool>? availability = gate is null
+            ? null
+            : ok => { if (ok) gate.MarkAvailable(); else gate.MarkUnavailable(); };
+
         _summaryProcessor = new BatchProcessor<ClusterSummaryMetricItem>(
-            WriteSummariesAsync, batchSize, flushInterval, _logger);
+            WriteSummariesAsync, batchSize, flushInterval, _logger, availabilityCallback: availability);
         _sessionProcessor = new BatchProcessor<SessionMetricItem>(
-            WriteSessionsAsync, batchSize, flushInterval, _logger);
+            WriteSessionsAsync, batchSize, flushInterval, _logger, availabilityCallback: availability);
         _processProcessor = new BatchProcessor<ProcessMetricItem>(
-            WriteProcessesAsync, batchSize, flushInterval, _logger);
+            WriteProcessesAsync, batchSize, flushInterval, _logger, availabilityCallback: availability);
         _connectionProcessor = new BatchProcessor<ConnectionMetricItem>(
-            WriteConnectionsAsync, batchSize, flushInterval, _logger);
+            WriteConnectionsAsync, batchSize, flushInterval, _logger, availabilityCallback: availability);
         _lockProcessor = new BatchProcessor<LockMetricItem>(
-            WriteLocksAsync, batchSize, flushInterval, _logger);
+            WriteLocksAsync, batchSize, flushInterval, _logger, availabilityCallback: availability);
     }
 
     public void Start()

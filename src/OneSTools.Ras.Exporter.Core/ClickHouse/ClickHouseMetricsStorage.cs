@@ -45,6 +45,24 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
         return ClickHouseDatabaseNamer.Slugify(dbName);
     }
 
+    public async Task<bool> ProbeAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = new ClickHouseConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "SELECT 1";
+            var res = await cmd.ExecuteScalarAsync(cancellationToken);
+            return res is not null && Convert.ToInt32(res) == 1;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Зонд ClickHouse неудачен");
+            return false;
+        }
+    }
+
     public async Task InitializeClusterDatabaseAsync(string databaseName, CancellationToken cancellationToken = default)
     {
         if (!_autoCreateDatabases && !_autoCreateTables) return;

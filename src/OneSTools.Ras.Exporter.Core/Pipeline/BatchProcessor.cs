@@ -30,6 +30,7 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
     private readonly int _flushAttempts;
     private readonly TimeSpan _flushGrace;
     private readonly ILogger _logger;
+    private readonly Action<bool>? _availabilityCallback;
     private readonly CancellationTokenSource _cts = new();
     private Task? _processingTask;
     private int _disposeState;
@@ -40,15 +41,24 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
         TimeSpan? flushInterval = null,
         ILogger? logger = null,
         int flushAttempts = 3,
-        TimeSpan? flushGrace = null)
+        TimeSpan? flushGrace = null,
+        Action<bool>? availabilityCallback = null)
     {
+        _availabilityCallback = availabilityCallback;
         _writeAction = writeAction;
         _batchSize = batchSize > 0 ? batchSize : 10000;
         _flushInterval = flushInterval ?? TimeSpan.FromSeconds(5);
         _flushAttempts = Math.Max(1, flushAttempts);
         _flushGrace = flushGrace ?? TimeSpan.FromSeconds(30);
         _logger = logger ?? NullLogger.Instance;
-        _channel = Channel.CreateUnbounded<TItem>(new UnboundedChannelOptions { SingleReader = true });
+        // Страховочный потолок: при живом StorageHealthGate очередь не должна расти до этого
+        // предела; FullMode=Wait даёт backpressure вместо неограниченной аллокации (T7/S2).
+        _channel = Channel.CreateBounded<TItem>(new BoundedChannelOptions(100_000)
+        {
+            FullMode = BoundedChannelFullMode.Wait,
+            SingleReader = true,
+            SingleWriter = false
+        });
     }
 
     public void Start()
@@ -147,6 +157,7 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
             {
                 await _writeAction(buffer, attemptCts.Token);
                 buffer.Clear();
+                _availabilityCallback?.Invoke(true);
                 return;
             }
             catch (Exception ex) when (attempt < attempts)
@@ -159,6 +170,7 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
             {
                 _logger.LogError(ex, "Запись батча ({Count} эл.) {Type} не удалась после {Total} попыток — батч отброшен",
                     buffer.Count, typeof(TItem).Name, attempts);
+                _availabilityCallback?.Invoke(false);
                 buffer.Clear();
                 return;
             }

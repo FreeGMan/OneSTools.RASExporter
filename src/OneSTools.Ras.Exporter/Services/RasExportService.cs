@@ -29,6 +29,7 @@ public sealed class RasExportService : BackgroundService
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<RasExportService> _logger;
     private readonly RasExporterHealthRegistry _health;
+    private readonly StorageHealthGate _gate;
 
     public RasExportService(
         IOptions<RasExporterSettings> rasSettings,
@@ -37,7 +38,8 @@ public sealed class RasExportService : BackgroundService
         MetricsBatchingPipeline pipeline,
         ILoggerFactory loggerFactory,
         ILogger<RasExportService> logger,
-        RasExporterHealthRegistry health)
+        RasExporterHealthRegistry health,
+        StorageHealthGate gate)
     {
         _rasSettings = rasSettings.Value;
         _storage = storage;
@@ -45,6 +47,7 @@ public sealed class RasExportService : BackgroundService
         _loggerFactory = loggerFactory;
         _logger = logger;
         _health = health;
+        _gate = gate;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -201,7 +204,7 @@ public sealed class RasExportService : BackgroundService
                 clusterLogger.LogInformation("Сессия RAS для кластера {ClusterName} установлена", target.ClusterName);
 
                 var worker = new ClusterMetricsWorker(
-                    client, target.ClusterId, target.ClusterName, _pipeline, _storage, intervals, clusterLogger);
+                    client, target.ClusterId, target.ClusterName, _pipeline, _storage, intervals, clusterLogger, _gate);
 
                 await worker.RunAsync(token);
             }

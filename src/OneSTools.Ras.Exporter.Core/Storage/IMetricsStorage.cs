@@ -9,6 +9,9 @@ public interface IMetricsStorage
 {
     string GetDatabaseName(string clusterName, Guid clusterId);
 
+    /// <summary>Лёгкий зонд доступности (SELECT 1): true = хранилище живо. Используется StorageHealthGate.</summary>
+    Task<bool> ProbeAsync(CancellationToken cancellationToken = default);
+
     Task InitializeClusterDatabaseAsync(string databaseName, CancellationToken cancellationToken = default);
 
     Task WriteClusterSummaryBatchAsync(string databaseName, IReadOnlyList<ClusterSummaryMetricItem> items, CancellationToken cancellationToken = default);

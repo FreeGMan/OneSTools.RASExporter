@@ -22,6 +22,8 @@ public sealed class MetricsBatchingPipelineTests
 
         public string GetDatabaseName(string clusterName, Guid clusterId) => $"ras_cluster_{clusterName}";
 
+        public Task<bool> ProbeAsync(CancellationToken cancellationToken = default) => Task.FromResult(true);
+
         public Task InitializeClusterDatabaseAsync(string databaseName, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 

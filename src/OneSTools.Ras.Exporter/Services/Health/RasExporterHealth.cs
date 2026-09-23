@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
+using OneSTools.Ras.Exporter.Core.Pipeline;
 
 namespace OneSTools.Ras.Exporter.Services.Health;
 
@@ -31,10 +32,13 @@ public sealed class RasExporterHealthRegistry
     public IReadOnlyCollection<RasClusterHealth> Snapshot() => _states.Values.ToArray();
 }
 
-public sealed class RasExporterHealthCheck(RasExporterHealthRegistry registry) : IHealthCheck
+public sealed class RasExporterHealthCheck(RasExporterHealthRegistry registry, StorageHealthGate gate) : IHealthCheck
 {
     public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
+        if (!gate.IsAvailable)
+            return Task.FromResult(HealthCheckResult.Degraded("ClickHouse недоступен — опрос RAS приостановлен, ожидание восстановления."));
+
         var states = registry.Snapshot();
         if (states.Count == 0)
             return Task.FromResult(HealthCheckResult.Degraded("Сбор ещё не запускался (нет активных кластеров)."));

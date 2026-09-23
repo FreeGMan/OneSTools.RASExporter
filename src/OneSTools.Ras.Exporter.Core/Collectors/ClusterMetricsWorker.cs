@@ -25,6 +25,7 @@ public sealed class ClusterMetricsWorker
     private readonly IMetricsStorage _storage;
     private readonly ClusterCollectorIntervals _intervals;
     private readonly ILogger _logger;
+    private readonly StorageHealthGate? _gate;
 
     public ClusterMetricsWorker(
         RasAdminClient client,
@@ -33,8 +34,10 @@ public sealed class ClusterMetricsWorker
         MetricsBatchingPipeline pipeline,
         IMetricsStorage storage,
         ClusterCollectorIntervals intervals,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        StorageHealthGate? gate = null)
     {
+        _gate = gate;
         _client = client;
         _clusterId = clusterId;
         _clusterName = clusterName;
@@ -60,11 +63,11 @@ public sealed class ClusterMetricsWorker
         }
 
         // 2. Instantiate collectors
-        var summaryCollector = new ClusterSummaryCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Clusters, _logger);
-        var sessionCollector = new SessionCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Sessions, _logger);
-        var processCollector = new ProcessCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Processes, _logger);
-        var connectionCollector = new ConnectionCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Connections, _logger);
-        var lockCollector = new LockCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Locks, _logger);
+        var summaryCollector = new ClusterSummaryCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Clusters, _logger, _gate);
+        var sessionCollector = new SessionCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Sessions, _logger, _gate);
+        var processCollector = new ProcessCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Processes, _logger, _gate);
+        var connectionCollector = new ConnectionCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Connections, _logger, _gate);
+        var lockCollector = new LockCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Locks, _logger, _gate);
 
         // 3. Run all collectors concurrently (запросы сериализуются гейтом эндпоинта);
         // первая же ошибка (например, смерть соединения) останавливает остальных —

@@ -18,6 +18,7 @@ public sealed class ClusterSummaryCollector
     private readonly MetricsBatchingPipeline _pipeline;
     private readonly TimeSpan _interval;
     private readonly ILogger _logger;
+    private readonly StorageHealthGate? _gate;
 
     public ClusterSummaryCollector(
         RasAdminClient client,
@@ -25,8 +26,10 @@ public sealed class ClusterSummaryCollector
         string clusterName,
         MetricsBatchingPipeline pipeline,
         TimeSpan interval,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        StorageHealthGate? gate = null)
     {
+        _gate = gate;
         _client = client;
         _clusterId = clusterId;
         _clusterName = clusterName;
@@ -42,6 +45,9 @@ public sealed class ClusterSummaryCollector
         {
             try
             {
+                if (_gate is not null)
+                    await _gate.WaitUntilReadyAsync(cancellationToken);
+
                 await CollectOnceAsync(cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
