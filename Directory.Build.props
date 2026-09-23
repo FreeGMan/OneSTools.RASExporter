@@ -11,4 +11,13 @@
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
+  <!-- Supply-chain hardening (TODO.md T7/S5): аудит NuGet на уязвимости (включая транзитивные)
+       и детерминированные lock-файлы для воспроизводимого restore/аудита. -->
+  <PropertyGroup>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
 </Project>
