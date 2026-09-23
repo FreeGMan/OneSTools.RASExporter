@@ -2,12 +2,10 @@
 1c-server/
 src/
 tests/
-reference/
 docs/
 tools/
 .git/
 .opencode/
-1c_ibis_admin_src/
 *.sln
 Directory.Build.props
 AGENT.md

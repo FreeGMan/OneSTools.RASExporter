@@ -2,7 +2,7 @@ namespace OneSTools.Ras.Client.Messages;
 
 /// <summary>
 /// Типы сообщений RAS API (EndpointDataMessage.Type).
-/// Источник: reference/v8platform-protos/rasapis/ras/messages/v1/types.proto
+/// Источник: github.com/v8platform/protos/rasapis/ras/messages/v1/types.proto
 /// </summary>
 public enum MessageType : byte
 {

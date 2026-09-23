@@ -3,7 +3,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Models;
 
-/// <summary>Модель данных «ManagerInfo» (docs/API_REFERENCE.md §3; версионированные поля — по reference/v8platform-protos).</summary>
+/// <summary>Модель данных «ManagerInfo» (docs/API_REFERENCE.md §3; версионированные поля — по github.com/v8platform/protos).</summary>
 public sealed record ManagerInfo
 {
     public Guid Uuid { get; init; }

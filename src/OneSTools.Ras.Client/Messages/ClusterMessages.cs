@@ -5,7 +5,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Messages;
 
-/// <summary>Запрос SWP-сообщение «GetClustersRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Запрос SWP-сообщение «GetClustersRequest». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetClustersRequest : IRasRequest<GetClustersResponse>
 {
     public MessageType MessageType => MessageType.GetClustersRequest;
@@ -18,7 +18,7 @@ public sealed record GetClustersRequest : IRasRequest<GetClustersResponse>
     public static GetClustersRequest Deserialize(ref RasReader reader, int version = 0) => new();
 }
 
-/// <summary>Ответ SWP-сообщение «GetClustersResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Ответ SWP-сообщение «GetClustersResponse». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetClustersResponse : IRasResponse<GetClustersResponse>
 {
     public IReadOnlyList<ClusterInfo> Clusters { get; init; } = Array.Empty<ClusterInfo>();
@@ -46,7 +46,7 @@ public sealed record GetClustersResponse : IRasResponse<GetClustersResponse>
     }
 }
 
-/// <summary>Запрос SWP-сообщение «GetClusterInfoRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Запрос SWP-сообщение «GetClusterInfoRequest». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetClusterInfoRequest(Guid ClusterId) : IRasRequest<GetClusterInfoResponse>
 {
     public MessageType MessageType => MessageType.GetClusterInfoRequest;
@@ -62,7 +62,7 @@ public sealed record GetClusterInfoRequest(Guid ClusterId) : IRasRequest<GetClus
     }
 }
 
-/// <summary>Ответ SWP-сообщение «GetClusterInfoResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Ответ SWP-сообщение «GetClusterInfoResponse». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetClusterInfoResponse : IRasResponse<GetClusterInfoResponse>
 {
     public ClusterInfo Info { get; init; } = new();

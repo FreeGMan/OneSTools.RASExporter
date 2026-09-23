@@ -4,7 +4,7 @@
 
 ## Правило
 
-- **COVERED**: метод покрыт контрактом в `reference/v8platform-protos/rasapis/ras/messages/v1/` или `serializeapis/` — `message_type` присутствует в `types.proto` и определён в `*_messages.proto`.
+- **COVERED**: метод покрыт контрактом в [v8platform/protos](https://github.com/v8platform/protos)/rasapis/ras/messages/v1/ или `serializeapis/` — `message_type` присутствует в `types.proto` и определён в `*_messages.proto`.
 - **GAP**: `message_type` отсутствует в `types.proto`, либо нет proto-определения сообщения, либо метод не имеет wire-протокола.
 
 ---
@@ -233,8 +233,8 @@
 
 ## Источники
 
-- `reference/v8platform-protos/rasapis/ras/messages/v1/types.proto` — перечисление MessageType
-- `reference/v8platform-protos/rasapis/ras/messages/v1/*.proto` — определения сообщений
-- `reference/v8platform-protos/serializeapis/v8platform/serialize/v1/*.proto` — модели данных
-- `reference/decompiled/java-src/com/_1c/v8/ibis/admin/IAgentAdminConnection.java` — Java API
-- `reference/decompiled/java-src/com/_1c/v8/ibis/admin/*.java` — модели данных
+- [v8platform/protos](https://github.com/v8platform/protos)/rasapis/ras/messages/v1/types.proto — перечисление MessageType
+- [v8platform/protos](https://github.com/v8platform/protos)/rasapis/ras/messages/v1/*.proto — определения сообщений
+- [v8platform/protos](https://github.com/v8platform/protos)/serializeapis/v8platform/serialize/v1/*.proto — модели данных
+- `com._1c.v8.ibis.admin.IAgentAdminConnection` (официальная Java-библиотека 1С) — Java API
+- `com._1c.v8.ibis.admin.*` — модели данных

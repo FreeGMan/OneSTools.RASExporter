@@ -1,7 +1,7 @@
 # CODEC_SPEC.md — Кодеки RAS wire format (для C#)
 
 > Фаза 4. Каждый кодек: алгоритм, hex-пример, C#-сигнатура.
-> Источники: `reference/v8platform-encoder/ras/codec256/{encode,decode}.go`, `encode_func.go`, `decode_func.go`, `utils.go`, `tag.go`, `options.go`, `marshal.go`; Java `com._1c.v8.swp.codec.*` и `com._1c.v8.swp.internal.codec.*`; сгенерённые `*_ras.pb.go`.
+> Источники: [v8platform/encoder](https://github.com/v8platform/encoder) (`ras/codec256/{encode,decode}.go`, `encode_func.go`, `decode_func.go`, `utils.go`, `tag.go`, `options.go`, `marshal.go`); Java `com._1c.v8.swp.codec.*` и `com._1c.v8.swp.internal.codec.*` (официальная библиотека 1С); сгенерённые `*_ras.pb.go`.
 
 ## 0. Сводка ответов на контрольные вопросы
 
@@ -427,8 +427,8 @@
 
 ## 7. Источники
 
-- Go: `reference/v8platform-encoder/ras/codec256/{encode,decode,version}.go`, `reference/v8platform-encoder/ras/{encoder,encode_func,decode_func,utils,tag,options,marshal}.go`
-- Go сгенерированные: `reference/v8platform-protos/gen/ras/protocol/v1/*_ras.pb.go`, `reference/v8platform-protos/gen/v8platform/serialize/v1/*_ras.pb.go`
-- Java: `reference/decompiled/java-src/com/_1c/v8/swp/codec/{CodecUtils,BinaryCodecFactory,IServiceWireCodec(Encoder,Decoder),ServiceWireType}.java`
-- Java: `reference/decompiled/java-src/com/_1c/v8/swp/internal/codec/{BinaryCodecV1_0,BigEndianEncoder,BigEndianDecoder,TypeCodes,Constants}.java`
-- Java: `reference/decompiled/java-src/com/_1c/v8/swp/endpoints/EndpointId.java`, `messages/NegotiateMessage*`, `ProtocolConstants.java` (MAGIC = 475223888 = `0x1C535750`; исправить в `TRANSPORT_SPEC.md` ошибочное `0x1C5A6E40`)
+- Go: [v8platform/encoder](https://github.com/v8platform/encoder) — `ras/codec256/{encode,decode,version}.go`, `ras/{encoder,encode_func,decode_func,utils,tag,options,marshal}.go`
+- Go сгенерированные: [v8platform/protos](https://github.com/v8platform/protos)/gen/ras/protocol/v1/*_ras.pb.go, [v8platform/protos](https://github.com/v8platform/protos)/gen/v8platform/serialize/v1/*_ras.pb.go
+- Java: `com._1c.v8.swp.codec.{CodecUtils,BinaryCodecFactory,IServiceWireCodec(Encoder,Decoder),ServiceWireType}` (официальная библиотека 1С)
+- Java: `com._1c.v8.swp.internal.codec.{BinaryCodecV1_0,BigEndianEncoder,BigEndianDecoder,TypeCodes,Constants}`
+- Java: `com._1c.v8.swp.endpoints.EndpointId`, `messages.NegotiateMessage*`, `ProtocolConstants` (MAGIC = 475223888 = `0x1C535750`; исправлено в `TRANSPORT_SPEC.md` ошибочное `0x1C5A6E40`)

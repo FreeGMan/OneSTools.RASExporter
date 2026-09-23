@@ -5,7 +5,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Messages;
 
-/// <summary>Запрос SWP-сообщение «GetConnectionsShortRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Запрос SWP-сообщение «GetConnectionsShortRequest». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetConnectionsShortRequest(Guid ClusterId) : IRasRequest<GetConnectionsShortResponse>
 {
     public MessageType MessageType => MessageType.GetConnectionsShortRequest;
@@ -21,7 +21,7 @@ public sealed record GetConnectionsShortRequest(Guid ClusterId) : IRasRequest<Ge
     }
 }
 
-/// <summary>Ответ SWP-сообщение «GetConnectionsShortResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Ответ SWP-сообщение «GetConnectionsShortResponse». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetConnectionsShortResponse : IRasResponse<GetConnectionsShortResponse>
 {
     public IReadOnlyList<ConnectionInfo> Connections { get; init; } = Array.Empty<ConnectionInfo>();
@@ -49,7 +49,7 @@ public sealed record GetConnectionsShortResponse : IRasResponse<GetConnectionsSh
     }
 }
 
-/// <summary>Запрос SWP-сообщение «GetInfoBaseConnectionsShortRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Запрос SWP-сообщение «GetInfoBaseConnectionsShortRequest». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetInfoBaseConnectionsShortRequest(Guid ClusterId, Guid InfobaseId) : IRasRequest<GetInfoBaseConnectionsShortResponse>
 {
     public MessageType MessageType => MessageType.GetInfoBaseConnectionsShortRequest;
@@ -66,7 +66,7 @@ public sealed record GetInfoBaseConnectionsShortRequest(Guid ClusterId, Guid Inf
     }
 }
 
-/// <summary>Ответ SWP-сообщение «GetInfoBaseConnectionsShortResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Ответ SWP-сообщение «GetInfoBaseConnectionsShortResponse». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetInfoBaseConnectionsShortResponse : IRasResponse<GetInfoBaseConnectionsShortResponse>
 {
     public IReadOnlyList<ConnectionInfo> Connections { get; init; } = Array.Empty<ConnectionInfo>();
@@ -94,7 +94,7 @@ public sealed record GetInfoBaseConnectionsShortResponse : IRasResponse<GetInfoB
     }
 }
 
-/// <summary>Запрос SWP-сообщение «DisconnectRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Запрос SWP-сообщение «DisconnectRequest». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record DisconnectRequest(Guid ClusterId, Guid ProcessId, Guid ConnectionId) : IRasVoidRequest
 {
     public MessageType MessageType => MessageType.DisconnectRequest;

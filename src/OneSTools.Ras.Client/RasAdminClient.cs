@@ -19,10 +19,10 @@ namespace OneSTools.Ras.Client;
 public sealed class RasAdminClient : IAsyncDisposable
 {
     /// <summary>
-    /// Wire-имя сервиса администрирования RAS (Java SDK: AgentAdminConnectionProxy.SERVICE_NAME).
+    /// Wire-имя сервиса администрирования RAS (Java SDK: AgentAdminConnectionProxy.SERVICE_NAME,
+    /// пакет com._1c.v8.ibis.internal.admin официальной Java-библиотеки 1С).
     /// FQN интерфейса IAgentAdminConnection — это имя Java-интерфейса, а не имя сервиса в протоколе.
-    /// Источник: reference/decompiled/java-src/.../AgentAdminConnectionProxy.java:174-175
-    /// и подтверждено реальным сервером 8.3.25.1520 (поддерживает 3.0..14.0).
+    /// Подтверждено реальным сервером 8.3.25.1520 (docs/TRANSPORT_SPEC.md §7.2): поддерживает 3.0..14.0.
     /// </summary>
     public const string AdminServiceName = "v8.service.Admin.Cluster";
 

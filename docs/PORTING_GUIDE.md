@@ -72,7 +72,7 @@ Go-кодек пишет `0x00` и не эмитит `0x80`. **Для совме
 
 ## Что можно взять готовым
 
-- [x] Форматы всех сообщений — из `reference/v8platform-protos/` (`.proto` + `gen/*_ras.pb.go`).
+- [x] Форматы всех сообщений — из [v8platform/protos](https://github.com/v8platform/protos)/ (`.proto` + `gen/*_ras.pb.go`).
 - [x] Модели данных (25) — из `serializeapis/*.proto` + API_REFERENCE.md.
 - [x] Список методов (84) и их wire-типы — API_REFERENCE.md.
 
@@ -100,6 +100,6 @@ Go-кодек пишет `0x00` и не эмитит `0x80`. **Для совме
 - Протокол: `docs/TRANSPORT_SPEC.md`
 - Кодеки: `docs/CODEC_SPEC.md`
 - API: `docs/API_REFERENCE.md`, `docs/GAP_ANALYSIS.md`
-- Контракты: `reference/v8platform-protos/`
-- Кодеки-примитивы (Go): `reference/v8platform-encoder/`
-- Декомпилят Java (транспорт): `reference/decompiled/java-src/com/_1c/v8/{swp,ibis,core}/`
+- Контракты: [v8platform/protos](https://github.com/v8platform/protos)/
+- Кодеки-примитивы (Go): [v8platform/encoder](https://github.com/v8platform/encoder)
+- Официальная Java-библиотека 1С (транспорт): `com._1c.v8.{swp,ibis,core}.*`

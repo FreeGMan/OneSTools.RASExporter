@@ -720,9 +720,9 @@ RuntimeException
 
 ## Источники
 
-- Javadoc: `1c_ibis_admin_src/docs/com/_1c/v8/ibis/admin/`
-- Java-интерфейсы: `reference/decompiled/java-src/com/_1c/v8/ibis/admin/`
-- Java-реализации: `reference/decompiled/java-src/com/_1c/v8/ibis/admin/` (файлы без префикса `I`)
-- Фабрики/коннекторы: `reference/decompiled/java-src/com/_1c/v8/ibis/admin/client/`
-- Модели данных (proto): `reference/v8platform-protos/serializeapis/v8platform/serialize/v1/*.proto`
-- Контракты сообщений (proto): `reference/v8platform-protos/rasapis/ras/messages/v1/*.proto`
+- Javadoc официальной Java-библиотеки администрирования 1С: пакет `com._1c.v8.ibis.admin` (входит в дистрибутив платформы 1С, см. README «Источники»)
+- Java-интерфейсы: `com._1c.v8.ibis.admin.I*` (официальная Java-библиотека 1С)
+- Java-реализации: `com._1c.v8.ibis.admin.*` (классы без префикса `I`)
+- Фабрики/коннекторы: `com._1c.v8.ibis.admin.client.*`
+- Модели данных (proto): [v8platform/protos](https://github.com/v8platform/protos)/serializeapis/v8platform/serialize/v1/*.proto
+- Контракты сообщений (proto): [v8platform/protos](https://github.com/v8platform/protos)/rasapis/ras/messages/v1/*.proto

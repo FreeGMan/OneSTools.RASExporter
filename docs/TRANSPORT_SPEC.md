@@ -2,9 +2,11 @@
 
 > Не protobuf — кастомный бинарный формат. TCP, порт RAS по умолчанию: **1545**.
 >
-> Каждый факт снабжён источником: `J` = декомпилированный Java-класс (`reference/decompiled/java-src/**`),
-> `P` = proto (`reference/v8platform-protos/rasapis/ras/protocol/v1/*.proto`), `D` = дебаг/вывод.
-> Помечено «не определено», если точных данных из декомпилята получить не удалось.
+> Каждый факт снабжён источником: `J` = класс официальной Java-библиотеки администрирования 1С
+> (`com._1c.v8.*`, поведение изучено анализом библиотеки из дистрибутива платформы),
+> `P` = контракты [v8platform/protos](https://github.com/v8platform/protos)
+> (`rasapis/ras/protocol/v1/*.proto`), `D` = дебаг/вывод с живого RAS.
+> Помечено «не определено», если точных данных получить не удалось.
 
 ---
 
@@ -267,7 +269,7 @@ Handshake на стороне клиента (из `ClientProtocolHandler.handsh
 ### 7.2 Имя и версии сервиса администрирования (подтверждено на живом RAS 8.3.25.1520, 2026-09-22)
 
 - Wire-имя сервиса: **`v8.service.Admin.Cluster`** (Java SDK: `AgentAdminConnectionProxy.SERVICE_NAME`,
-  `reference/decompiled/java-src/com/_1c/v8/ibis/internal/admin/AgentAdminConnectionProxy.java:174`).
+  пакет `com._1c.v8.ibis.internal.admin`).
   FQN `com.1c.v8.ibis.admin.IAgentAdminConnection` — имя Java-интерфейса, сервер его **не** знает
   (ответ `v8.service.UnsupportedService`).
 - Версии: сервер 8.3.25.1520 принимает `3.0 … 14.0` (Java SDK перебирает `3.0…10.0` — список устарел).
@@ -317,13 +319,13 @@ Handshake на стороне клиента (из `ClientProtocolHandler.handsh
 
 ## Источники
 
-- `reference/decompiled/java-src/com/_1c/v8/swp/**` — ProtocolConstants, NegotiateMessage(Format), MessageType,
+- Java SDK `com._1c.v8.swp.**` — ProtocolConstants, NegotiateMessage(Format), MessageType,
   MessageCodes, BinaryCodecV1_0, WireFormatV1_0, TypeCodes/ServiceWireType, WireFormatUtils,
   ConnectMessageFormat/ConnectAckMessageFormat, Sasl*Message(Format), StartTlsMessageFormat,
   EndpointOpenMessageFormat/EndpointOpenAckMessageFormat, EndpointFormat, KeepAliveMessageFormat
-- `reference/decompiled/java-src/com/_1c/v8/ibis/internal/swp/**` — V8Connection, V8Transport, EndpointFormat
-- `reference/decompiled/java-src/com/_1c/v8/core/**`/`db/SimpleSaslHandler` — SaslProperties, SaslConstants
-- `reference/v8platform-protos/rasapis/ras/protocol/v1/protocol.proto`, `connect.proto`, `endpoint.proto`,
+- Java SDK `com._1c.v8.ibis.internal.swp.**` — V8Connection, V8Transport, EndpointFormat
+- Java SDK `com._1c.v8.core.**`/`db.SimpleSaslHandler` — SaslProperties, SaslConstants
+- [v8platform/protos](https://github.com/v8platform/protos)/rasapis/ras/protocol/v1/protocol.proto, `connect.proto`, `endpoint.proto`,
   `param.proto`, `types.proto` — сверка типов/сообщений
 - Netty pipeline: `swp.internal.netty` (ClientProtocolHandler, ClientSaslHandler, ServerSaslHandler)
 - Сжатие: `swp/compression/**` (CompressionSupportFactory, ICompressionSupport), zlib

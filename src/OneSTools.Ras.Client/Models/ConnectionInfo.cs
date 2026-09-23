@@ -3,7 +3,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Models;
 
-/// <summary>Модель данных «ConnectionInfo» (docs/API_REFERENCE.md §3; версионированные поля — по reference/v8platform-protos).</summary>
+/// <summary>Модель данных «ConnectionInfo» (docs/API_REFERENCE.md §3; версионированные поля — по github.com/v8platform/protos).</summary>
 public sealed record ConnectionInfo
 {
     public Guid Uuid { get; init; }

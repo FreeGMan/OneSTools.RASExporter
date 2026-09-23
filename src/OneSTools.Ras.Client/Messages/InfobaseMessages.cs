@@ -5,7 +5,7 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Messages;
 
-/// <summary>Запрос SWP-сообщение «GetInfoBasesShortRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Запрос SWP-сообщение «GetInfoBasesShortRequest». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetInfoBasesShortRequest(Guid ClusterId) : IRasRequest<GetInfoBasesShortResponse>
 {
     public MessageType MessageType => MessageType.GetInfoBasesShortRequest;
@@ -21,7 +21,7 @@ public sealed record GetInfoBasesShortRequest(Guid ClusterId) : IRasRequest<GetI
     }
 }
 
-/// <summary>Ответ SWP-сообщение «GetInfoBasesShortResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Ответ SWP-сообщение «GetInfoBasesShortResponse». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetInfoBasesShortResponse : IRasResponse<GetInfoBasesShortResponse>
 {
     public IReadOnlyList<InfobaseSummaryInfo> InfoBases { get; init; } = Array.Empty<InfobaseSummaryInfo>();
@@ -49,7 +49,7 @@ public sealed record GetInfoBasesShortResponse : IRasResponse<GetInfoBasesShortR
     }
 }
 
-/// <summary>Запрос SWP-сообщение «GetInfoBasesRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Запрос SWP-сообщение «GetInfoBasesRequest». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetInfoBasesRequest(Guid ClusterId) : IRasRequest<GetInfoBasesResponse>
 {
     public MessageType MessageType => MessageType.GetInfoBasesRequest;
@@ -65,7 +65,7 @@ public sealed record GetInfoBasesRequest(Guid ClusterId) : IRasRequest<GetInfoBa
     }
 }
 
-/// <summary>Ответ SWP-сообщение «GetInfoBasesResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Ответ SWP-сообщение «GetInfoBasesResponse». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetInfoBasesResponse : IRasResponse<GetInfoBasesResponse>
 {
     public IReadOnlyList<InfobaseInfo> InfoBases { get; init; } = Array.Empty<InfobaseInfo>();
@@ -93,7 +93,7 @@ public sealed record GetInfoBasesResponse : IRasResponse<GetInfoBasesResponse>
     }
 }
 
-/// <summary>Запрос SWP-сообщение «GetInfoBaseInfoRequest». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Запрос SWP-сообщение «GetInfoBaseInfoRequest». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetInfoBaseInfoRequest(Guid ClusterId, Guid InfobaseId) : IRasRequest<GetInfoBaseInfoResponse>
 {
     public MessageType MessageType => MessageType.GetInfoBaseInfoRequest;
@@ -110,7 +110,7 @@ public sealed record GetInfoBaseInfoRequest(Guid ClusterId, Guid InfobaseId) : I
     }
 }
 
-/// <summary>Ответ SWP-сообщение «GetInfoBaseInfoResponse». Порядок/версионирование полей: reference/v8platform-protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
+/// <summary>Ответ SWP-сообщение «GetInfoBaseInfoResponse». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
 public sealed record GetInfoBaseInfoResponse : IRasResponse<GetInfoBaseInfoResponse>
 {
     public InfobaseInfo Info { get; init; } = new();
