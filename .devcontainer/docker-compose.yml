@@ -14,6 +14,8 @@ services:
     environment:
       - DOTNET_CLI_TELEMETRY_OPTOUT=1
       - DOTNET_NOLOGO=1
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:?Set CLICKHOUSE_PASSWORD in the shell or .env}
+      - ClickHouse__ConnectionString=Host=clickhouse;Port=8123;Username=default;Password=${CLICKHOUSE_PASSWORD:?Set CLICKHOUSE_PASSWORD};
     cap_add:
       - SYS_PTRACE
     security_opt:
@@ -28,11 +30,11 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
     environment:
-      - CLICKHOUSE_PASSWORD=clickhouse
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:?Set CLICKHOUSE_PASSWORD in the shell or .env}
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     ports:
-      - "8123:8123" # HTTP-интерфейс
-      - "9000:9000" # Native-протокол
+      - "127.0.0.1:8123:8123" # HTTP-интерфейс
+      - "127.0.0.1:9000:9000" # Native-протокол
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - clickhouse-log:/var/log/clickhouse-server
@@ -48,7 +50,7 @@ services:
       context: ..
       dockerfile: .devcontainer/mock-ras/Dockerfile
     ports:
-      - "1545:1545"
+      - "127.0.0.1:1545:1545"
     restart: unless-stopped
 
   # Реальный RAS-сервер "1С:Предприятие 8.3" (прокси к агенту кластера ragent).

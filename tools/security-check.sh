@@ -7,12 +7,12 @@ SOL="${1:-OneSTools.Ras.sln}"
 STATUS=0
 
 echo "== 1. NuGet: уязвимые пакеты (прямые и транзитивные) =="
-if out=$(dotnet list "$SOL" package --vulnerable --include-transitive 2>&1) && \
-   ! grep -qiE "is vulnerable to" <<<"$out"; then
-    echo "OK: уязвимостей в каталоге NuGet не найдено"
+if out=$(dotnet list "$SOL" package --vulnerable --include-transitive --format json 2>&1); then
+    if ! bash tools/check-nuget-vulnerabilities.sh <<<"$out"; then
+        STATUS=1
+    fi
 else
-    echo "FAIL: найдены уязвимые пакеты:"
-    grep -iE -B2 -A6 "is vulnerable to" <<<"$out" | sed 's/^/    /' || true
+    echo "FAIL: сканирование NuGet не удалось: $out"
     STATUS=1
 fi
 
@@ -35,6 +35,9 @@ while read -r proj; do
     esac
 done < <(dotnet sln "$SOL" list)
 if [[ $missing -eq 0 ]]; then echo "OK: lock-файлы есть у всех проектов"; else STATUS=1; fi
+if ! dotnet restore "$SOL" --locked-mode --verbosity quiet; then
+    echo "FAIL: locked-mode restore не прошёл"; STATUS=1
+fi
 
 echo
 echo "== 4. Секреты в индексе git (грубый поиск по отслеживаемым файлам) =="

@@ -37,10 +37,12 @@ public static class Program
         int port = args.Length > 0 && int.TryParse(args[0], out int parsed) ? parsed : DefaultPort;
         int maxAdminVersion = args.Length > 1 && int.TryParse(args[1], out int parsedMax) ? parsedMax : 14;
 
-        using var listener = new TcpListener(IPAddress.Any, port);
+        string? bindAddress = Environment.GetEnvironmentVariable("MOCK_RAS_BIND_ADDRESS");
+        var address = bindAddress is null ? IPAddress.Loopback : IPAddress.Parse(bindAddress);
+        using var listener = new TcpListener(address, port);
         listener.Start();
 
-        logger.LogInformation("Mock-RAS запущен на 0.0.0.0:{Port} (ожидается magic {Magic}), {Service} версии 3.0..{Max}.0", port, 475223888, ClientSession.AdminServiceName, maxAdminVersion);
+        logger.LogInformation("Mock-RAS запущен на {Address}:{Port} (ожидается magic {Magic}), {Service} версии 3.0..{Max}.0", address, port, 475223888, ClientSession.AdminServiceName, maxAdminVersion);
 
         try
         {

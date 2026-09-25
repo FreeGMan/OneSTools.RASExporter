@@ -16,6 +16,7 @@ TestResults/
 Thumbs.db
 
 ## Local config
+.env
 **/appsettings.local.json
 **/appsettings.Development.json
 docker-compose.override.local.yml

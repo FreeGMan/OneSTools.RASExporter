@@ -6,10 +6,7 @@ public sealed class ClickHouseSettings
     public const string SectionName = "ClickHouse";
 
     /// <summary>Строка подключения ClickHouse (HTTP интерфейс, порт по умолчанию 8123).</summary>
-    public string ConnectionString { get; set; } = "Host=clickhouse;Port=8123;Username=default;Password=clickhouse;";
-
-    /// <summary>Префикс имени базы данных кластера.</summary>
-    public string DatabasePrefix { get; set; } = "ras_";
+    public string ConnectionString { get; set; } = "Host=clickhouse;Port=8123;Username=default;";
 
     /// <summary>
     /// Шаблон имени базы данных кластера. Поддерживает подстановки:
@@ -27,5 +24,4 @@ public sealed class ClickHouseSettings
     /// <summary>Максимальное время накопления перед принудительным сбросом порции (сек).</summary>
     public int FlushIntervalSeconds { get; set; } = 5;
 
-    public int WritingMaxDegreeOfParallelism { get; set; } = 1;
 }

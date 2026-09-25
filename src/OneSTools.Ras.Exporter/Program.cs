@@ -48,11 +48,13 @@ builder.Services
     .AddOptions<RasExporterSettings>()
     .Bind(builder.Configuration.GetSection(RasExporterSettings.SectionName))
     .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<RasExporterSettings>, RasExporterSettingsValidator>();
 
 builder.Services
     .AddOptions<ClickHouseSettings>()
     .Bind(builder.Configuration.GetSection(ClickHouseSettings.SectionName))
     .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<ClickHouseSettings>, ClickHouseSettingsValidator>();
 
 builder.Services.AddSingleton<IMetricsStorage>(sp =>
 {

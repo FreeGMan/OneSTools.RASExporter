@@ -15,5 +15,6 @@ RUN dotnet publish src/OneSTools.Ras.MockServer/OneSTools.Ras.MockServer.csproj 
 FROM mcr.microsoft.com/dotnet/runtime:8.0
 WORKDIR /app
 COPY --from=build /app/publish .
+ENV MOCK_RAS_BIND_ADDRESS=0.0.0.0
 EXPOSE 1545
 ENTRYPOINT ["dotnet", "OneSTools.Ras.MockServer.dll"]

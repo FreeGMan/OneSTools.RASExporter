@@ -18,7 +18,7 @@ namespace OneSTools.Ras.IntegrationTests.ClickHouse;
 
 public sealed class FullExportPipelineTests : IAsyncLifetime
 {
-    private const string ConnectionString = "Host=clickhouse;Port=8123;Username=default;Password=clickhouse;";
+    private static string ConnectionString => ClickHouseTestConnection.ConnectionString;
     private const string TestDatabase = "ras_e2e_pipeline_test";
 
     private readonly CancellationTokenSource _serverCts = new();
@@ -27,6 +27,8 @@ public sealed class FullExportPipelineTests : IAsyncLifetime
 
     private static async Task<(bool Available, string? Error)> CheckClickHouseAvailabilityAsync()
     {
+        if (!ClickHouseTestConnection.IsConfigured)
+            return (false, "задайте CLICKHOUSE_PASSWORD или CLICKHOUSE_TEST_CONNECTION_STRING");
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
@@ -43,7 +45,7 @@ public sealed class FullExportPipelineTests : IAsyncLifetime
         }
         catch (Exception ex)
         {
-            return (false, ex.Message);
+            return (false, ex.GetType().Name);
         }
     }
 
@@ -86,7 +88,7 @@ public sealed class FullExportPipelineTests : IAsyncLifetime
     public async Task EndToEnd_MockServer_To_Pipeline_To_ClickHouse_Works()
     {
         var (available, error) = await CheckClickHouseAvailabilityAsync();
-        Skip.If(!available, $"ClickHouse недоступен ({error}). Строка подключения: '{ConnectionString}'.");
+        Skip.If(!available, $"ClickHouse недоступен ({error}).");
 
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 

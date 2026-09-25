@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "sources": ["https://api.nuget.org/v3/index.json"],
+  "projects": [{
+    "path": "sample.csproj",
+    "frameworks": [{
+      "framework": "net8.0",
+      "transitivePackages": [{
+        "id": "Example.Vulnerable",
+        "resolvedVersion": "1.0.0",
+        "vulnerabilities": [{
+          "severity": "Critical",
+          "advisoryurl": "https://github.com/advisories/GHSA-example"
+        }]
+      }]
+    }]
+  }]
+}

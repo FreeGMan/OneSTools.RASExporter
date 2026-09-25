@@ -14,11 +14,13 @@ namespace OneSTools.Ras.IntegrationTests.ClickHouse;
 
 public sealed class ClickHouseMetricsStorageTests
 {
-    private const string ConnectionString = "Host=clickhouse;Port=8123;Username=default;Password=clickhouse;";
+    private static string ConnectionString => ClickHouseTestConnection.ConnectionString;
     private const string TestDatabase = "ras_integration_test";
 
     private static async Task<(bool Available, string? Error)> CheckClickHouseAvailabilityAsync()
     {
+        if (!ClickHouseTestConnection.IsConfigured)
+            return (false, "задайте CLICKHOUSE_PASSWORD или CLICKHOUSE_TEST_CONNECTION_STRING");
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
@@ -35,7 +37,7 @@ public sealed class ClickHouseMetricsStorageTests
         }
         catch (Exception ex)
         {
-            return (false, ex.Message);
+            return (false, ex.GetType().Name);
         }
     }
 
@@ -43,7 +45,7 @@ public sealed class ClickHouseMetricsStorageTests
     public async Task Can_Initialize_Database_And_Insert_All_Metric_Types()
     {
         var (available, error) = await CheckClickHouseAvailabilityAsync();
-        Skip.If(!available, $"ClickHouse недоступен ({error}). Строка подключения: '{ConnectionString}'.");
+        Skip.If(!available, $"ClickHouse недоступен ({error}).");
 
         var storage = new ClickHouseMetricsStorage(
             ConnectionString,
