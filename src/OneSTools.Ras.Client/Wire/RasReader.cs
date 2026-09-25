@@ -63,6 +63,8 @@ public ref struct RasReader
             if (i > RasWireConstants.MaxSizeVarIntBytes - 1)
                 throw new RasProtocolException("size varint too long");
             cur = ReadByte();
+            if (i == RasWireConstants.MaxSizeVarIntBytes - 1 && (cur & 0xF8) != 0)
+                throw new RasProtocolException("size varint overflow");
             int part = (cur & RasWireConstants.LsbMask) << shift;
             if (part < 0 || size > int.MaxValue - part)
                 throw new RasProtocolException("size varint overflow");
@@ -92,6 +94,8 @@ public ref struct RasReader
                 if (i > RasWireConstants.MaxNullableSizeVarIntBytes - 1)
                     throw new RasProtocolException("nullable_size varint too long");
                 cur = ReadByte();
+                if (i == RasWireConstants.MaxNullableSizeVarIntBytes - 1 && (cur & 0xF0) != 0)
+                    throw new RasProtocolException("nullable_size varint overflow");
                 int part = (cur & RasWireConstants.LsbMask) << shift;
                 if (part < 0 || size > int.MaxValue - part)
                     throw new RasProtocolException("nullable_size varint overflow");

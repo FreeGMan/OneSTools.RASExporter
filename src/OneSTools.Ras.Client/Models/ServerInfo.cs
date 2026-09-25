@@ -86,7 +86,7 @@ public sealed record ServerInfo
             DedicateManagers = reader.ReadBool(),
         };
 
-        int rangeCount = reader.ReadSize();
+        int rangeCount = reader.ReadListCount();
         var ranges = new List<PortRange>(rangeCount);
         for (int i = 0; i < rangeCount; i++)
         {

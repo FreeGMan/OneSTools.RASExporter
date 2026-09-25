@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.Text;
 using OneSTools.Ras.Client.Protocol;
+using OneSTools.Ras.Client.Exceptions;
+using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.MockServer.Framing;
 
@@ -45,6 +47,8 @@ public sealed class SwpFrameReader
         while (true)
         {
             var raw = await _stream.ReadByteAsync(cancellationToken);
+            if (shift == 28 && (raw & 0xF8) != 0)
+                throw new RasProtocolException("SWP frame size varint overflow");
             value |= (raw & 0x7F) << shift;
             if ((raw & 0x80) == 0)
             {
@@ -54,7 +58,7 @@ public sealed class SwpFrameReader
             shift += 7;
             if (shift > 28)
             {
-                throw new InvalidDataException("LEB128 varint слишком длинный");
+                throw new RasProtocolException("LEB128 varint слишком длинный");
             }
         }
     }
@@ -63,29 +67,30 @@ public sealed class SwpFrameReader
     public async Task<int?> ReadNullableSizeAsync(CancellationToken cancellationToken)
     {
         var first = await _stream.ReadByteAsync(cancellationToken);
-        if (first == 0x80)
+        if ((first & 0x80) != 0)
         {
+            if (first != 0x80)
+                throw new RasProtocolException("Invalid null marker");
             return null;
         }
 
         int value = first & 0x3F;
-        int shift = 6;
         if ((first & 0x40) != 0)
         {
-            while (true)
+            int shift = 6;
+            for (int i = 1; ; i++, shift += 7)
             {
+                if (i >= RasWireConstants.MaxNullableSizeVarIntBytes)
+                    throw new RasProtocolException("nullable varint too long");
                 var next = await _stream.ReadByteAsync(cancellationToken);
-                value |= (next & 0x3F) << shift;
-                if ((next & 0x40) == 0)
-                {
+                if (i == RasWireConstants.MaxNullableSizeVarIntBytes - 1 && (next & 0xF0) != 0)
+                    throw new RasProtocolException("nullable varint overflow");
+                int part = (next & 0x7F) << shift;
+                if (part < 0 || value > int.MaxValue - part)
+                    throw new RasProtocolException("nullable varint overflow");
+                value += part;
+                if ((next & 0x80) == 0)
                     break;
-                }
-
-                shift += 6;
-                if (shift > 30)
-                {
-                    throw new InvalidDataException("nullable varint слишком длинный");
-                }
             }
         }
 
@@ -101,6 +106,8 @@ public sealed class SwpFrameReader
             return null;
         }
 
+        if (length.Value < 0 || length.Value > RasWireConstants.MaxBytesLength)
+            throw new RasProtocolException($"SWP string size out of bounds: {length.Value}");
         byte[] bytes = await ReadBytesAsync(length.Value, cancellationToken);
         return Encoding.UTF8.GetString(bytes);
     }
@@ -110,6 +117,8 @@ public sealed class SwpFrameReader
     {
         byte type = await _stream.ReadByteAsync(cancellationToken);
         int size = await ReadVarIntAsync(cancellationToken);
+        if (size < 0 || size > RasWireConstants.MaxFrameSize)
+            throw new RasProtocolException($"SWP frame size out of bounds: {size}");
         byte[] payload = size == 0
             ? Array.Empty<byte>()
             : await ReadBytesAsync(size, cancellationToken);

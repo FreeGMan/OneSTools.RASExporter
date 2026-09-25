@@ -36,7 +36,12 @@ public sealed class RasConnection : IAsyncDisposable
     private readonly ConcurrentDictionary<int, TaskCompletionSource<byte[]>> _pendingRequests = new();
     private readonly ConcurrentDictionary<int, RasEndpoint> _activeEndpoints = new();
 
-    private readonly Channel<SwpFrame> _unhandledFrames = Channel.CreateUnbounded<SwpFrame>();
+    private readonly Channel<SwpFrame> _unhandledFrames = Channel.CreateBounded<SwpFrame>(new BoundedChannelOptions(16)
+    {
+        FullMode = BoundedChannelFullMode.DropOldest,
+        SingleReader = false,
+        SingleWriter = true
+    });
 
     // PipeWriter не потокобезопасен: все фреймы (эндпоинты, keep-alive, close) пишутся под гейтом.
     private readonly SemaphoreSlim _writeGate = new(1, 1);
@@ -371,7 +376,10 @@ public sealed class RasConnection : IAsyncDisposable
                 break;
 
             default:
-                _unhandledFrames.Writer.TryWrite(frame);
+                if (frame.Payload.Length <= 64 * 1024)
+                    _unhandledFrames.Writer.TryWrite(frame);
+                else
+                    _logger.LogDebug("Неподдерживаемый SWP-фрейм type={Type}, size={Size} отброшен", frame.Type, frame.Payload.Length);
                 break;
         }
     }
@@ -550,9 +558,13 @@ public sealed class RasConnection : IAsyncDisposable
         int size = 0;
         int shift = 0;
         bool sizeRead = false;
+        int bytesRead = 0;
 
         while (reader.TryRead(out byte b))
         {
+            bytesRead++;
+            if (bytesRead == 5 && (b & 0xF8) != 0)
+                throw new RasProtocolException("SWP frame size varint overflow");
             size |= (b & 0x7F) << shift;
             if ((b & 0x80) == 0)
             {
@@ -560,7 +572,7 @@ public sealed class RasConnection : IAsyncDisposable
                 break;
             }
             shift += 7;
-            if (shift > 28) throw new InvalidDataException("Invalid varint");
+            if (shift > 28) throw new RasProtocolException("SWP frame size varint too long");
         }
 
         if (!sizeRead) return false;

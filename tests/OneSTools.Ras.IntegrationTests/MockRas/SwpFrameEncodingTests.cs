@@ -1,4 +1,6 @@
 using OneSTools.Ras.Client.Protocol;
+using OneSTools.Ras.Client.Exceptions;
+using OneSTools.Ras.Client.Wire;
 using OneSTools.Ras.MockServer.Framing;
 
 namespace OneSTools.Ras.IntegrationTests.MockRas;
@@ -68,5 +70,34 @@ public sealed class SwpFrameEncodingTests
 
         Assert.Equal((byte)SwpMessageType.EndpointMessage, frame.Type);
         Assert.Equal(payload, frame.Payload);
+    }
+
+    [Fact]
+    public async Task Oversized_Frame_Is_Rejected_Before_Allocating_Body()
+    {
+        var writer = new SwpFrameWriter();
+        writer.WriteByte((byte)SwpMessageType.EndpointMessage);
+        writer.WriteSize(RasWireConstants.MaxFrameSize + 1);
+        using var stream = new MemoryStream(writer.GetWrittenBytes().ToArray());
+
+        await Assert.ThrowsAsync<RasProtocolException>(() => new SwpFrameReader(stream).ReadFrameAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Frame_Size_Varint_Cannot_Wrap_Around()
+    {
+        using var stream = new MemoryStream([0x0E, 0x80, 0x80, 0x80, 0x80, 0x10]);
+
+        await Assert.ThrowsAsync<RasProtocolException>(() => new SwpFrameReader(stream).ReadFrameAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Nullable_Size_Uses_Seven_Bit_Continuation_Bytes()
+    {
+        var writer = new SwpFrameWriter();
+        writer.WriteNullableSize(16_384);
+        using var stream = new MemoryStream(writer.GetWrittenBytes().ToArray());
+
+        Assert.Equal(16_384, await new SwpFrameReader(stream).ReadNullableSizeAsync(CancellationToken.None));
     }
 }

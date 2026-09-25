@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using OneSTools.Ras.Client.Exceptions;
 using OneSTools.Ras.Client.Transport;
 using Xunit;
 
@@ -31,5 +32,14 @@ public sealed class RasCompressionTests
         byte[] decompressed = RasCompression.Inflate(compressed);
         Assert.Equal(original, decompressed);
         Assert.Equal(text, Encoding.UTF8.GetString(decompressed));
+    }
+
+    [Fact]
+    public void Compressed_Payload_Cannot_Exceed_Decompressed_Limit()
+    {
+        byte[] compressed = RasCompression.Deflate(new byte[32_768]);
+
+        Assert.Throws<RasProtocolException>(() => RasCompression.Inflate(compressed, maxOutputBytes: 8192));
+        Assert.Equal(32_768, RasCompression.Inflate(compressed, maxOutputBytes: 32_768).Length);
     }
 }

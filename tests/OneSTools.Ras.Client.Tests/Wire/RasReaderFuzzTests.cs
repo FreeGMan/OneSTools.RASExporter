@@ -41,6 +41,14 @@ public sealed class RasReaderFuzzTests
         Assert.Throws<RasProtocolException>(() => Reader(data).ReadSize());
     }
 
+    [Fact]
+    public void ReadSize_Fifth_Byte_Cannot_Wrap_Around()
+        => Assert.Throws<RasProtocolException>(() => Reader(0x80, 0x80, 0x80, 0x80, 0x10).ReadSize());
+
+    [Fact]
+    public void ReadNullableSize_Fifth_Byte_Cannot_Wrap_Around()
+        => Assert.Throws<RasProtocolException>(() => Reader(0x40, 0x80, 0x80, 0x80, 0x10).ReadNullableSize());
+
     [Theory]
     [InlineData(new byte[] { 0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF })] // overlong continuation
     [InlineData(new byte[] { 0x7F, 0xFF, 0xFF, 0xFF, 0xFF })]        // overflow accumulation

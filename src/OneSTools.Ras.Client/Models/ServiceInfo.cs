@@ -31,7 +31,7 @@ public sealed record ServiceInfo
         var descr = reader.ReadString() ?? string.Empty;
         var mainOnly = reader.ReadInt32();
 
-        int count = reader.ReadSize();
+        int count = reader.ReadListCount();
         var managers = new List<Guid>(count);
         for (int i = 0; i < count; i++)
         {

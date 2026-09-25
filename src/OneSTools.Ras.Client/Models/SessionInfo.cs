@@ -180,7 +180,7 @@ public sealed record SessionInfo
             HibernateSessionTerminateTime = reader.ReadInt32(),
         };
 
-        int licCount = reader.ReadSize();
+        int licCount = reader.ReadListCount();
         var licenses = new List<LicenseInfo>(licCount);
         for (int i = 0; i < licCount; i++)
         {
