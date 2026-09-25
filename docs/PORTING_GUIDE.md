@@ -6,26 +6,21 @@
 ## Архитектура C# порта
 
 ```text
-C# RAS Client (target namespace R8.RasClient)
-├── Transport/                    ← TRANSPORT_SPEC.md + JAR netty handlers
-│   ├── RasConnection             TCP-обёртка: фрейминг, handshake, keep-alive, reconnect
-│   ├── RasEndpoint               мультиплексирование EndpointMessage + корреляция по endpointId
-│   ├── Sasl                      SASL (PLAIN minimal; DIGEST-MD5/CRAM-MD5/GSSAPI по мере надобности)
-│   └── TlsCompression            START_TLS + zlib/deflate (бит 0 в msgFormat)
+C# RAS Client (namespace OneSTools.Ras.Client)
+├── Transport/                    ← TRANSPORT_SPEC.md
+│   ├── RasConnection             TCP, фрейминг, handshake, keep-alive, диспетчеризация ответов
+│   ├── RasEndpoint               последовательные вызовы API на endpointId
+│   └── RasCompression            ограниченная распаковка deflate (бит 0 в msgFormat)
 ├── Wire/                         ← CODEC_SPEC.md (17 примитивов, аналог codec256)
 │   ├── RasWriter / RasReader     big-endian + varint-family кодеки
-│   └── RasCodecRegistry          позиционная сериализация по полям сообщений
 ├── Protocol/                     ← protos (rasapis/ras/protocol/v1) + CODEC_SPEC
-│   ├── Packet, NegotiateMessage, ConnectMessage, ConnectMessageAck
-│   ├── Param, ParamType
-│   └── EndpointOpen(Ack/Close/Failure/Message)
-├── Messages/                     ← v8platform-protos/messages/v1 + GAP_ANALYSIS (62 COVERED)
-│   └── XxxRequest / XxxResponse  POCO-классы + ручные кодек-методы (std protobuf: только как model)
+│   └── SwpProtocolConstants, RasParametersSerializer, RasThrowableSerializer
+├── Messages/                     ← v8platform/protos/messages/v1 + GAP_ANALYSIS (48 COVERED)
+│   └── XxxRequest / XxxResponse  ручные Serialize/Deserialize для реализованных методов
 ├── Models/                       ← v8platform-protos/serializeapis + API_REFERENCE
-│   └── ClusterInfo, InfoBaseInfo, SessionInfobase, ... (25 моделей)
-├── Services/                     ← API_REFERENCE.md (84 метода IAgentAdminConnection)
-│   └── RasAdminService:       GetClusters(), GetInfoBases(), GetSessions(), ...
-└── Exceptions/                   ← API_REFERENCE.md (5 классов иерархии)
+│   └── ClusterInfo, InfobaseInfo, SessionInfo и другие модели реализованных сообщений
+├── RasAdminClient                27 методов API из 84 в Java-интерфейсе
+└── Exceptions/                   ← исключения SWP/RAS
 ```
 
 ## Ключевой факт о wire-формате
@@ -33,8 +28,8 @@ C# RAS Client (target namespace R8.RasClient)
 **НЕ стандартный protobuf.** Позиционная сериализация: поля кодируются подряд по опции
 `(ras.encoding.field).order`, каждая с явным кодеком (`byte`, `short`, `int32`, `size`, `string`, ...).
 `protoc` генерирует tag-value формат — **не подходит** для обмена с RAS; можно использовать только
-для генерации data-классов. Кодирование/декодирование — через собственный registry кодеков
-(аналог `v8platform/encoder/ras` + `protoc-gen-go-ras`).
+для генерации data-классов. В текущем клиенте поля сериализуются вручную в
+`Messages/` и `Models/` на основе `RasWriter`/`RasReader`.
 
 ## Собственные кодеки C# (из CODEC_SPEC.md, 17 примитивов)
 
@@ -60,20 +55,19 @@ Go-кодек пишет `0x00` и не эмитит `0x80`. **Для совме
 
 ## Что писать вручную (реализация с нуля)
 
-- [x] `RasCodecRegistry` + все 17 примитивов — переписать с Go `v8platform-encoder/ras/codec256` (эталон CODEC_SPEC.md)
-  — так же, как `protoc-gen-go-ras` генерирует метод Format/Parse на сообщение.
+- [x] `RasWriter`/`RasReader`: 17 примитивов по CODEC_SPEC.md, тесты hex-векторов и лимитов парсера.
 - [x] `RasConnection`: TCP, `Negotiate` (`1C 53 57 50 01 00 01 00`), `Connect(connect.timeout=2000)`,
   чтение `[type][size][data]`, корреляция future по типу, keep-alive (type 16, пустое тело) по IdleState.
 - [x] `RasEndpoint`: open → `[endpointId: nullable-size][format: short][payload]`;
   payload-слой `EndpointFormat` = `1 byte kind [0x00 void | 0x01 message | 0xFF exception] + payload/throwable`.
-- [x] SASL (`PLAIN` достаточно для кластеров с user/password).
-- [x] Сериализация сообщений: для 62 COVERED — порядок полей из `.proto` (order + encoder);
-  для 22 GAP — по документации JAR (см. GAP_ANALYSIS.md).
+- [ ] SASL/START_TLS не реализованы (принятый риск изолированного контура, см. SECURITY.md).
+- [x] Сериализация сообщений для 27 доступных методов клиента — порядок полей из `.proto` (order + encoder).
+- [ ] Остальные методы и сообщения: наличие proto-контракта (48 COVERED / 36 GAP) не равно реализации в C#.
 
 ## Что можно взять готовым
 
-- [x] Форматы всех сообщений — из [v8platform/protos](https://github.com/v8platform/protos)/ (`.proto` + `gen/*_ras.pb.go`).
-- [x] Модели данных (25) — из `serializeapis/*.proto` + API_REFERENCE.md.
+- [x] Форматы реализованных сообщений — по [v8platform/protos](https://github.com/v8platform/protos)/ (`.proto` + `gen/*_ras.pb.go`).
+- [x] Модели реализованных сообщений — по `serializeapis/*.proto` + API_REFERENCE.md.
 - [x] Список методов (84) и их wire-типы — API_REFERENCE.md.
 
 ## Риски / открытые вопросы (из TRANSPORT_SPEC §9.2)
@@ -92,7 +86,8 @@ Go-кодек пишет `0x00` и не эмитит `0x80`. **Для совме
 2. **`RasConnection`** + Negotiate/Connect + фрейминг → интеграция с mock-RAS (или серверный эндпоинт на .NET для теста).
 3. **`RasEndpoint`** + open/close/keep-alive.
 4. **Сериализация `Packet`/`ConnectMessage`** → реальный RAS, `getClusters()` на минимальном client.
-5. Расширение до 62 COVERED-сообщений (сервисный слой), потом 22 GAP по JAR-документации.
+5. Расширение текущих 27 методов клиентского API на остальные методы с proto-контрактом,
+   затем 36 GAP по доступным спецификациям и проверке на живом стенде.
 6. SAST/audit: тесты от брёвен реального RAS (Wireshark/`tcpdump`) против C#-кодеков.
 
 ## Источники

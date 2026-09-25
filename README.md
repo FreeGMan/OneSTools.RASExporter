@@ -17,10 +17,10 @@
 | | |
 |---|---|
 | Протокол | выведен из поведения обращения официальной Java-библиотеки с живому серверу **1С 8.3.25.1520** (стенд в изолированном контуре) |
-| API | портировано 62 метода из 84 (`docs/GAP_ANALYSIS.md`), negotiation версий сервиса `3.0…14.0` |
-| Тесты | 129: кодеки/сообщения (unit), mock-интеграция, тесты живого стенда, нагрузочный харнесс |
-| Надёжность | паттерн «соединение на кластер», retry/backoff, пауза при падении ClickHouse — см. замеры [docs/SECURITY.md](docs/SECURITY.md), [docs/ARCHITECTURE_REVIEW.md](docs/ARCHITECTURE_REVIEW.md) |
-| Ограничения | без TLS/SASL (принято для изолированного контура); GAP-методы не портированы; формат R8 — только POSIX-время |
+| API | 27 методов в публичном `RasAdminClient` из 84 методов Java API; `docs/GAP_ANALYSIS.md` оценивает наличие proto-контрактов, а не реализацию C#; negotiation версий сервиса `3.0…14.0` |
+| Тесты | 147: кодеки/сообщения (unit), mock-интеграция, тесты живого стенда и ClickHouse; нагрузочный харнесс запускается отдельно |
+| Надёжность | соединение на кластер, retry/backoff, повтор инициализации схемы после сбоя ClickHouse, ограниченные очереди и счётчик потерь — см. [docs/SECURITY.md](docs/SECURITY.md) |
+| Ограничения | без TLS/SASL (изолированный контур); часть методов Java API не портирована; экспорт метрик best effort, без устойчивой очереди; формат R8 — только POSIX-время |
 
 ## Проекты
 
@@ -41,7 +41,7 @@
 | [docs/TRANSPORT_SPEC.md](docs/TRANSPORT_SPEC.md) | транспорт SWP: magic/negotiate, фрейминг, handshake, эндпоинты, SASL/TLS-рамки, §7.2 — wire-имя и версии сервиса (подтверждено живым RAS) |
 | [docs/CODEC_SPEC.md](docs/CODEC_SPEC.md) | 17 бинарных кодеков wire-формата: алгоритмы, hex-примеры, C#-сигнатуры |
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | 84 метода `IAgentAdminConnection`, 25 моделей данных |
-| [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md) | соответствие методов ↔ wire-сообщений (62 COVERED / 22 GAP) |
+| [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md) | наличие proto-описаний для 84 методов Java API (48 COVERED / 36 GAP), не охват реализации клиента |
 | [docs/PORTING_GUIDE.md](docs/PORTING_GUIDE.md) | план C#-порта и ключевые wire-факты |
 | [docs/ARCHITECTURE_REVIEW.md](docs/ARCHITECTURE_REVIEW.md) | ревизия архитектуры vs OneSTools.EventLog, решения R1–R8 |
 | [docs/SECURITY.md](docs/SECURITY.md) | модель угроз, лимиты парсера, обращение с секретами, чек-лист перед аудитом ИБ |
@@ -52,6 +52,9 @@
 Окружение — devcontainer (`.devcontainer/`): сервисы `clickhouse` (8123/9000) и `mock-ras` (1545);
 реальный тестовый стенд RAS подключается как внешний хост `1c-test-server` (или через
 `docker-compose.override.yml`, см. пример).
+Перед открытием devcontainer установите `CLICKHOUSE_PASSWORD` в окружении Docker Compose
+или в локальном `.env` (игнорируется Git). Опубликованные dev-порты привязаны к `127.0.0.1`;
+внутри сети Compose сервисы доступны друг другу по именам.
 
 ```bash
 dotnet build OneSTools.Ras.sln          # 0 warnings / 0 errors — обязательное условие
@@ -68,10 +71,11 @@ using OneSTools.Ras.Client;
 
 await using var ras = new RasAdminClient("ras-host", 1545);
 await ras.ConnectAsync();                                  // TCP + negotiate + эндпоинт v14.0
-await ras.AuthenticateClusterAsync(clusterId, "", "");     // обязательно даже без паролей — см. docs/TRANSPORT_SPEC.md §7.2
-
-foreach (var cluster in await ras.GetClustersAsync())
-    Console.WriteLine($"{cluster.Name} @ {cluster.Host}:{cluster.Port}");
+var clusters = await ras.GetClustersAsync();
+if (clusters.Count == 0) throw new InvalidOperationException("RAS не вернул кластеры");
+var cluster = clusters[0];
+Console.WriteLine($"{cluster.Name} @ {cluster.Host}:{cluster.Port}");
+await ras.AuthenticateClusterAsync(cluster.Uuid, "", "");   // требуется даже без пароля
 
 var sessions  = await ras.GetSessionsAsync(cluster.Uuid);
 var processes = await ras.GetWorkingProcessesAsync(cluster.Uuid);
@@ -80,8 +84,10 @@ var locks     = await ras.GetLocksAsync(cluster.Uuid);
 
 ### Конфигурация экспортёра
 
-`src/OneSTools.Ras.Exporter/appsettings.json` (**dev-only значения**, боевые креды — только
-через env/`appsettings.local.json`; приоритет: base < local < user-secrets(Development) < env < args).
+`src/OneSTools.Ras.Exporter/appsettings.json` содержит пример конфигурации без пароля ClickHouse;
+учётные данные задаются через env/`appsettings.local.json` (приоритет: base < local <
+user-secrets(Development) < env < args). В devcontainer `ClickHouse__ConnectionString` собирается
+из `CLICKHOUSE_PASSWORD`; вне контейнера задайте полную строку подключения через env или локальный файл.
 
 ```jsonc
 {
@@ -99,6 +105,9 @@ var locks     = await ras.GetLocksAsync(cluster.Uuid);
 
 - `Clusters: []` — авто-обнаружение всех кластеров сервера.
 - Переопределение: `RasExporter__Servers__0__Host=...`, `ClickHouse__ConnectionString=...`.
+- Для уникального имени БД на каждый кластер задайте `DatabaseTemplate`, содержащий
+  `{ClusterId}`: шаблон по умолчанию основан только на нормализованном имени кластера.
+- При старте проверяются серверы, порты, интервалы опроса, размер батча и параметры ClickHouse.
 - Пустые `User/Password` кластера — валидный анонимный вход (реальный RAS всё равно требует
   явный `authenticateCluster`).
 
@@ -112,7 +121,9 @@ RAS (SWP:1545) ──1 conn/кластер──> RasAdminClient ──> 5 ко�
 Каждая пара (сервер, кластер) — отдельное SWP-соединение с независимым reconnect и
 экспоненциальным backoff; запросы внутри соединения сериализованы (SWP-эндпоинт
 последователен). При недоступном ClickHouse опросы RAS встают на паузу и возобновляются
-по зонду каждые 30 с. Подробности — [docs/ARCHITECTURE_REVIEW.md](docs/ARCHITECTURE_REVIEW.md).
+по зонду каждые 30 с; схема создаётся повторно до старта сбора. После исчерпания повторов
+неотправленные метрики отбрасываются с записью ошибки и отражением числа потерь в health-check.
+Подробности — [docs/ARCHITECTURE_REVIEW.md](docs/ARCHITECTURE_REVIEW.md).
 
 ### Тесты живого стенда
 
@@ -122,6 +133,8 @@ dotnet test tests/OneSTools.Ras.IntegrationTests
 ```
 
 Без доступа к стенду соответствующие тесты скипуются с причиной.
+Тестам ClickHouse нужна переменная `CLICKHOUSE_PASSWORD` либо
+`CLICKHOUSE_TEST_CONNECTION_STRING`; без неё эти тесты пропускаются.
 
 ### Нагрузка и хаос
 
@@ -135,7 +148,8 @@ dotnet run --project src/OneSTools.Ras.LoadSim -- --mode chaos --duration 60
 ### Безопасность
 
 - Модель угроз и принятые риски (включая «без TLS в изолированном контуре») — [docs/SECURITY.md](docs/SECURITY.md).
-- Проверка зависимостей/конфига: `bash tools/security-check.sh` (NuGetAudit + lock-файлы + грепок секретов).
+- Проверка зависимостей/конфига: `bash tools/security-check.sh` (NuGetAudit, JSON-отчёт по прямым
+  и транзитивным пакетам, locked-mode restore, проверка секретов; требуется `jq`).
 
 ## Структура репозитория
 

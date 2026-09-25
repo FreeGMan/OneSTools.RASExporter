@@ -28,7 +28,7 @@
 | `docs/TRANSPORT_SPEC.md` | Транспорт SWP: фрейминг, handshake, типы сообщений, SASL, TLS, endpoint'ы |
 | `docs/CODEC_SPEC.md` | 17 бинарных кодеков wire-формата: алгоритмы, hex-примеры, C#-сигнатуры |
 | `docs/API_REFERENCE.md` | 84 метода `IAgentAdminConnection`, 25 моделей данных |
-| `docs/GAP_ANALYSIS.md` | Соответствие методов ↔ сообщений (62 COVERED / 22 GAP) |
+| `docs/GAP_ANALYSIS.md` | Наличие proto-описаний для 84 методов (48 COVERED / 36 GAP); реализованное API учитывается отдельно |
 | `docs/PORTING_GUIDE.md` | План реализации C#-библиотеки, список рисков |
 
 **Жёсткие правила wire-формата (НЕ нарушать):**
@@ -74,6 +74,7 @@
 
 - VSCode: расширения C# Dev Kit, dotnet-test-explorer, Docker.
 - Команды (внутри `dotnet-dev`):
+  - перед запуском devcontainer задать `CLICKHOUSE_PASSWORD` в окружении Compose или локальном `.env`
   - `dotnet build OneSTools.Ras.sln`
   - `dotnet test OneSTools.Ras.sln`
   - `dotnet run --project src/OneSTools.Ras.MockServer -- <port> [maxVersion]` — mock на `:port`
@@ -129,7 +130,9 @@ OneSTools.Ras.sln
 
 Принципы (уточняются на этапе реализации хранилища, до закрепления схемы):
 
-- **Отдельная база на кластер**: имя по шаблону `ras_cluster_{ClusterName}` (`ClickHouseSettings.DatabaseTemplate`).
+- **База по шаблону кластера**: по умолчанию `ras_cluster_{ClusterName}`
+  (`ClickHouseSettings.DatabaseTemplate`); при необходимости строгой уникальности задавать
+  шаблон с `{ClusterId}` (нормализация разных имён может дать совпадение).
 - **Своя таблица на сущность**: `sessions`, `processes`, `connections`, `locks`, `cluster_summary`.
 - **Движок**: `ReplacingMergeTree`/`MergeTree`, партиционирование `PARTITION BY toYYYYMM(_time)`,
   `ORDER BY (_time, …)`; кодеки сжатия колонок — `ZSTD`, `DoubleDelta` (для времени).
@@ -154,11 +157,13 @@ OneSTools.Ras.sln
 
 ## 9. Статус реализации
 
-Этапы 1–6 (кодеки, транспорт, endpoint-слой, 62 API-сообщения, Exporter.Core, Worker Service +
-HealthChecks) — **реализованы и проверены живым RAS 8.3.25.1520** (см. README.md,
-docs/SECURITY.md §3, замеры LoadSim). Остаток:
+Кодеки, транспорт, endpoint-слой, 27 методов публичного `RasAdminClient`, Exporter.Core,
+Worker Service и HealthChecks реализованы. Основные сценарии проверялись на RAS 8.3.25.1520;
+см. README.md, docs/SECURITY.md §3 и замеры LoadSim. Остаток:
 
-1. 22 GAP-метода — по спецификациям docs/ + верификация живым стендом (GAP_ANALYSIS).
+1. Остальные методы Java API: часть методов с proto-контрактом ещё не выведена в клиентский API;
+   у 36 методов нет полного proto-описания (GAP_ANALYSIS). Пересечения с перегрузками
+   Java API учитывать при подсчёте; проверять на живом стенде.
 2. SASL/TLS — при выходе за пределы изолированного контура (docs/TRANSPORT_SPEC.md §5–6).
 3. Стенд с реальными инфобазами/нагрузкой — верификация версионированных полей SessionInfo и т.п.
 
