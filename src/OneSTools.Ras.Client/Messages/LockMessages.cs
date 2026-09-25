@@ -140,19 +140,20 @@ public sealed record GetConnectionLocksResponse : IRasResponse<GetConnectionLock
 }
 
 /// <summary>Запрос SWP-сообщение «GetSessionLocksRequest». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
-public sealed record GetSessionLocksRequest(Guid ClusterId, Guid SessionId) : IRasRequest<GetSessionLocksResponse>
+public sealed record GetSessionLocksRequest(Guid ClusterId, Guid InfobaseId, Guid SessionId) : IRasRequest<GetSessionLocksResponse>
 {
     public MessageType MessageType => MessageType.GetSessionLocksRequest;
 
     public void Serialize(ref RasWriter writer, int version = 0)
     {
         writer.WriteUuid(ClusterId);
+        writer.WriteUuid(InfobaseId);
         writer.WriteUuid(SessionId);
     }
 
     public static GetSessionLocksRequest Deserialize(ref RasReader reader, int version = 0)
     {
-        return new GetSessionLocksRequest(reader.ReadUuid(), reader.ReadUuid());
+        return new GetSessionLocksRequest(reader.ReadUuid(), reader.ReadUuid(), reader.ReadUuid());
     }
 }
 

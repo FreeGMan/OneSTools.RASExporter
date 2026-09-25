@@ -248,9 +248,9 @@ public sealed class RasAdminClient : IAsyncDisposable
     }
 
     /// <summary>Блокировки, удерживаемые сессией.</summary>
-    public async Task<IReadOnlyList<LockInfo>> GetSessionLocksAsync(Guid clusterId, Guid sessionId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<LockInfo>> GetSessionLocksAsync(Guid clusterId, Guid infobaseId, Guid sessionId, CancellationToken cancellationToken = default)
     {
-        var response = await EnsureEndpoint().ExecuteAsync(new GetSessionLocksRequest(clusterId, sessionId), ProtocolVersion, cancellationToken);
+        var response = await EnsureEndpoint().ExecuteAsync(new GetSessionLocksRequest(clusterId, infobaseId, sessionId), ProtocolVersion, cancellationToken);
         return response.Locks;
     }
 
@@ -309,9 +309,9 @@ public sealed class RasAdminClient : IAsyncDisposable
     }
 
     /// <summary>Добавление администратора информационной базы.</summary>
-    public Task AddAuthenticationAsync(Guid infobaseId, string user, string password, CancellationToken cancellationToken = default)
+    public Task AddAuthenticationAsync(Guid clusterId, string user, string password, CancellationToken cancellationToken = default)
     {
-        return EnsureEndpoint().ExecuteVoidAsync(new AddAuthenticationRequest(infobaseId, user, password), ProtocolVersion, cancellationToken);
+        return EnsureEndpoint().ExecuteVoidAsync(new AddAuthenticationRequest(clusterId, user, password), ProtocolVersion, cancellationToken);
     }
 
     /// <summary>Версия платформы агента (например «8.3.25.1520»), без аутентификации.</summary>

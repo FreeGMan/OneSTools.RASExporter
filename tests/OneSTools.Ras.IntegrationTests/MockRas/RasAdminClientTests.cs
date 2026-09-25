@@ -93,6 +93,8 @@ public sealed class RasAdminClientTests : IAsyncLifetime
         Assert.Single(infobases);
         Assert.Equal("mock_db", infobases[0].Name);
 
+        Assert.Single(await client.GetSessionLocksAsync(cluster.Uuid, infobases[0].Uuid, sessions[0].Uuid, cts.Token));
+
         // 8. GetAgentVersion
         var version = await client.GetAgentVersionAsync(cts.Token);
         Assert.Equal("8.3.24.1342", version);

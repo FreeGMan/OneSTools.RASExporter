@@ -21,7 +21,7 @@ public interface IRasVoidRequest : IRasMessage
 }
 
 /// <summary>Ответ, восстанавливаемый из RasReader (версионирован: см. docs/CODEC_SPEC.md).</summary>
-public interface IRasResponse<TSelf>
+public interface IRasResponse<TSelf> : IRasMessage
     where TSelf : IRasResponse<TSelf>
 {
     static abstract TSelf Deserialize(ref RasReader reader, int version = 0);

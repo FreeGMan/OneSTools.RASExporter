@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
 using OneSTools.Ras.Client.Messages;
+using OneSTools.Ras.Client.Exceptions;
 using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Transport;
@@ -69,7 +70,9 @@ public sealed class RasEndpoint : IAsyncDisposable
         await _callGate.WaitAsync(cancellationToken);
         try
         {
-            await SendMessageAsync(requestBytes, cancellationToken);
+            byte[] response = await SendMessageAsync(requestBytes, cancellationToken);
+            if (response.Length != 0)
+                throw new RasProtocolException("Expected VOID response, got MESSAGE");
         }
         finally
         {
@@ -102,12 +105,14 @@ public sealed class RasEndpoint : IAsyncDisposable
         var seq = new ReadOnlySequence<byte>(responseBytes);
         var reader = new RasReader(seq);
 
-        if (reader.Remaining > 0)
-        {
-            _ = reader.ReadByte(); // wire type
-        }
+        if (reader.Remaining == 0)
+            throw new RasProtocolException("Expected typed response, got VOID");
 
-        return TResponse.Deserialize(ref reader, protocolVersion);
+        byte messageType = reader.ReadByte();
+        var response = TResponse.Deserialize(ref reader, protocolVersion);
+        if (messageType != (byte)response.MessageType)
+            throw new RasProtocolException($"Unexpected response type: {messageType}, expected {(byte)response.MessageType}");
+        return response;
     }
 
     /// <summary>

@@ -7,6 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using OneSTools.Ras.Client.Transport;
+using OneSTools.Ras.Client.Exceptions;
+using OneSTools.Ras.Client.Messages;
+using OneSTools.Ras.Client.Wire;
 using OneSTools.Ras.MockServer;
 using Xunit;
 
@@ -14,6 +17,12 @@ namespace OneSTools.Ras.IntegrationTests.MockRas;
 
 public sealed class RasEndpointTests : IAsyncLifetime
 {
+    private sealed record WrongResponseRequest : IRasRequest<GetClustersResponse>
+    {
+        public MessageType MessageType => MessageType.GetAgentAdminsRequest;
+        public void Serialize(ref RasWriter writer, int version = 0) { }
+    }
+
     private readonly CancellationTokenSource _serverCts = new();
     private Task? _serverTask;
     private int _port;
@@ -104,5 +113,18 @@ public sealed class RasEndpointTests : IAsyncLifetime
         Assert.Equal((byte)OneSTools.Ras.Client.Messages.MessageType.GetAgentVersionResponse, response[0]);
 
         await endpoint.CloseAsync(cts.Token);
+    }
+
+    [Fact]
+    public async Task Typed_Request_Rejects_Unexpected_Response_Type()
+    {
+        await using var connection = new RasConnection(new IPEndPoint(IPAddress.Loopback, _port));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await connection.ConnectAsync(cancellationToken: timeout.Token);
+        await using var endpoint = await connection.OpenEndpointAsync(
+            new ServiceId("v8.service.Admin.Cluster", "14.0"), cancellationToken: timeout.Token);
+
+        await Assert.ThrowsAsync<RasProtocolException>(() =>
+            endpoint.ExecuteAsync(new WrongResponseRequest(), 14, timeout.Token));
     }
 }

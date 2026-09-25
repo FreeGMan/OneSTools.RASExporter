@@ -382,9 +382,14 @@ public sealed class ClientSession
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetSessionsRequest:
-            case MessageType.GetInfoBaseSessionsRequest:
                 respWriter.WriteByte((byte)MessageType.GetSessionsResponse);
                 new GetSessionsResponse { Sessions = new[] { MockSession } }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetInfoBaseSessionsRequest:
+                respWriter.WriteByte((byte)MessageType.GetInfoBaseSessionsResponse);
+                new GetInfoBaseSessionsResponse { Sessions = new[] { MockSession } }
                     .Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
@@ -408,18 +413,38 @@ public sealed class ClientSession
                 return respBuffer.WrittenSpan.ToArray();
 
             case MessageType.GetConnectionsShortRequest:
-            case MessageType.GetInfoBaseConnectionsShortRequest:
                 respWriter.WriteByte((byte)MessageType.GetConnectionsShortResponse);
                 new GetConnectionsShortResponse { Connections = new[] { MockConnection } }
                     .Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 
+            case MessageType.GetInfoBaseConnectionsShortRequest:
+                respWriter.WriteByte((byte)MessageType.GetInfoBaseConnectionsShortResponse);
+                new GetInfoBaseConnectionsShortResponse { Connections = new[] { MockConnection } }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
             case MessageType.GetLocksRequest:
-            case MessageType.GetInfoBaseLocksRequest:
-            case MessageType.GetConnectionLocksRequest:
-            case MessageType.GetSessionLocksRequest:
                 respWriter.WriteByte((byte)MessageType.GetLocksResponse);
                 new GetLocksResponse { Locks = new[] { MockLock } }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetInfoBaseLocksRequest:
+                respWriter.WriteByte((byte)MessageType.GetInfoBaseLocksResponse);
+                new GetInfoBaseLocksResponse { Locks = new[] { MockLock } }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetConnectionLocksRequest:
+                respWriter.WriteByte((byte)MessageType.GetConnectionLocksResponse);
+                new GetConnectionLocksResponse { Locks = new[] { MockLock } }
+                    .Serialize(ref respWriter, protocolVersion);
+                return respBuffer.WrittenSpan.ToArray();
+
+            case MessageType.GetSessionLocksRequest:
+                respWriter.WriteByte((byte)MessageType.GetSessionLocksResponse);
+                new GetSessionLocksResponse { Locks = new[] { MockLock } }
                     .Serialize(ref respWriter, protocolVersion);
                 return respBuffer.WrittenSpan.ToArray();
 

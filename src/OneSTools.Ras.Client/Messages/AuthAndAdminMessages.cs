@@ -31,13 +31,13 @@ public sealed record AuthenticateRequest(Guid ClusterId, string User, string Pas
 }
 
 /// <summary>Запрос SWP-сообщение «AddAuthenticationRequest». Порядок/версионирование полей: github.com/v8platform/protos + docs/CODEC_SPEC.md, семантика — docs/API_REFERENCE.md.</summary>
-public sealed record AddAuthenticationRequest(Guid InfobaseId, string User, string Password) : IRasVoidRequest
+public sealed record AddAuthenticationRequest(Guid ClusterId, string User, string Password) : IRasVoidRequest
 {
     public MessageType MessageType => MessageType.AddAuthenticationRequest;
 
     public void Serialize(ref RasWriter writer, int version = 0)
     {
-        writer.WriteUuid(InfobaseId);
+        writer.WriteUuid(ClusterId);
         writer.WriteString(User);
         writer.WriteString(Password);
     }
