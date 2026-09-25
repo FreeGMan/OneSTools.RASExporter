@@ -19,6 +19,7 @@ public sealed class ConnectionCollector
     private readonly TimeSpan _interval;
     private readonly ILogger _logger;
     private readonly StorageHealthGate? _gate;
+    private readonly Action<string, Exception?>? _pollStatus;
 
     public ConnectionCollector(
         RasAdminClient client,
@@ -27,9 +28,11 @@ public sealed class ConnectionCollector
         MetricsBatchingPipeline pipeline,
         TimeSpan interval,
         ILogger? logger = null,
-        StorageHealthGate? gate = null)
+        StorageHealthGate? gate = null,
+        Action<string, Exception?>? pollStatus = null)
     {
         _gate = gate;
+        _pollStatus = pollStatus;
         _client = client;
         _clusterId = clusterId;
         _clusterName = clusterName;
@@ -49,17 +52,20 @@ public sealed class ConnectionCollector
                     await _gate.WaitUntilReadyAsync(cancellationToken);
 
                 await CollectOnceAsync(cancellationToken);
+                _pollStatus?.Invoke("connections", null);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 break;
             }
-            catch (Exception) when (_client.Connection.IsClosed)
+            catch (Exception ex) when (_client.Connection.IsClosed)
             {
+                _pollStatus?.Invoke("connections", ex);
                 throw; // соединение RAS мертво — экспортёр выполнит переподключение
             }
             catch (Exception ex)
             {
+                _pollStatus?.Invoke("connections", ex);
                 _logger.LogError(ex, "Ошибка при сборе соединений кластера {Cluster}", _clusterName);
             }
 

@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\OneSTools.Ras.Client\OneSTools.Ras.Client.csproj" />
     <ProjectReference Include="..\..\src\OneSTools.Ras.Exporter.Core\OneSTools.Ras.Exporter.Core.csproj" />
+    <ProjectReference Include="..\..\src\OneSTools.Ras.Exporter\OneSTools.Ras.Exporter.csproj" />
     <ProjectReference Include="..\..\src\OneSTools.Ras.MockServer\OneSTools.Ras.MockServer.csproj" />
   </ItemGroup>
 

@@ -33,7 +33,6 @@ public sealed class RasExportService : BackgroundService
 
     public RasExportService(
         IOptions<RasExporterSettings> rasSettings,
-        IOptions<ClickHouseSettings> clickHouseSettings,
         IMetricsStorage storage,
         MetricsBatchingPipeline pipeline,
         ILoggerFactory loggerFactory,
@@ -92,6 +91,7 @@ public sealed class RasExportService : BackgroundService
             server.PollIntervals.Locks);
 
         var running = new Dictionary<(Guid, string), CancellationTokenSource>();
+        var runningHealthKeys = new Dictionary<(Guid, string), string>();
         var allCts = new List<CancellationTokenSource>();
         var clusterTasks = new List<Task>();
         var discoveryBackoff = new BackoffPolicy();
@@ -127,6 +127,7 @@ public sealed class RasExportService : BackgroundService
 
                     var clusterCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                     running[key] = clusterCts;
+                    runningHealthKeys[key] = $"{server.Name}/{target.ClusterName}";
                     allCts.Add(clusterCts);
                     clusterTasks.Add(RunClusterLoopAsync(server, target, intervals, clusterCts));
                     serverLogger.LogInformation("Кластер {ClusterName} ({ClusterId}): запущен выделенный конвейер сбора", target.ClusterName, target.ClusterId);
@@ -140,6 +141,8 @@ public sealed class RasExportService : BackgroundService
 
                     cts.Cancel();
                     running.Remove(key);
+                    _health.Remove(runningHealthKeys[key]);
+                    runningHealthKeys.Remove(key);
                     serverLogger.LogInformation("Кластер {ClusterId}: убран из конфигурации/списка, сбор остановлен", key.Item1);
                 }
 
@@ -201,10 +204,19 @@ public sealed class RasExportService : BackgroundService
                 await client.AuthenticateClusterAsync(target.ClusterId, target.User ?? string.Empty, target.Password ?? string.Empty, token);
                 backoff.Reset();
                 _health.MarkConnected(healthKey);
+                _health.ConfigurePolls(healthKey, new Dictionary<string, TimeSpan>
+                {
+                    ["summary"] = intervals.Clusters,
+                    ["sessions"] = intervals.Sessions,
+                    ["processes"] = intervals.Processes,
+                    ["connections"] = intervals.Connections,
+                    ["locks"] = intervals.Locks
+                });
                 clusterLogger.LogInformation("Сессия RAS для кластера {ClusterName} установлена", target.ClusterName);
 
                 var worker = new ClusterMetricsWorker(
-                    client, target.ClusterId, target.ClusterName, _pipeline, _storage, intervals, clusterLogger, _gate);
+                    client, target.ClusterId, target.ClusterName, _pipeline, _storage, intervals, clusterLogger, _gate,
+                    (collector, error) => _health.RecordPoll(healthKey, collector, error));
 
                 await worker.RunAsync(token);
             }

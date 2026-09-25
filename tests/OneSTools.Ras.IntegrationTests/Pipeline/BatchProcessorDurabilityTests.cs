@@ -104,7 +104,7 @@ public sealed class BatchProcessorDurabilityTests
     {
         var attempts = 0;
 
-        await using (var processor = new BatchProcessor<int>(
+        await using var processor = new BatchProcessor<int>(
             async (batch, _) =>
             {
                 await Task.Yield();
@@ -114,14 +114,13 @@ public sealed class BatchProcessorDurabilityTests
             batchSize: 100,
             flushInterval: TimeSpan.FromMilliseconds(50),
             flushAttempts: 2,
-            flushGrace: TimeSpan.FromSeconds(1)))
-        {
-            processor.Start();
-            await processor.EnqueueAsync(1);
-            await WaitUntilAsync(() => Volatile.Read(ref attempts) >= 2, TimeSpan.FromSeconds(5));
-        }
+            flushGrace: TimeSpan.FromSeconds(1));
+        processor.Start();
+        await processor.EnqueueAsync(1);
+        await WaitUntilAsync(() => processor.DroppedItems == 1, TimeSpan.FromSeconds(5));
 
         Assert.True(attempts >= 2);
+        Assert.Equal(1, processor.DroppedItems);
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)

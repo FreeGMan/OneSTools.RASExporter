@@ -34,6 +34,9 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
     private readonly CancellationTokenSource _cts = new();
     private Task? _processingTask;
     private int _disposeState;
+    private long _droppedItems;
+
+    public long DroppedItems => Interlocked.Read(ref _droppedItems);
 
     public BatchProcessor(
         Func<IReadOnlyList<TItem>, CancellationToken, Task> writeAction,
@@ -160,6 +163,7 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
             }
             catch (Exception ex) when (attempt < attempts)
             {
+                RetainFailedItems(buffer, ex);
                 // первый сбой закрывает гейт: коллекторы встают на паузу сразу (меньше потерь)
                 _availabilityCallback?.Invoke(false);
                 _logger.LogWarning(ex, "Попытка {Attempt}/{Total} записи батча ({Count} эл.) {Type} не удалась, повтор...",
@@ -168,13 +172,23 @@ public sealed class BatchProcessor<TItem> : IAsyncDisposable
             }
             catch (Exception ex)
             {
+                RetainFailedItems(buffer, ex);
                 _logger.LogError(ex, "Запись батча ({Count} эл.) {Type} не удалась после {Total} попыток — батч отброшен",
                     buffer.Count, typeof(TItem).Name, attempts);
                 _availabilityCallback?.Invoke(false);
+                Interlocked.Add(ref _droppedItems, buffer.Count);
                 buffer.Clear();
                 return;
             }
         }
+    }
+
+    private static void RetainFailedItems(List<TItem> buffer, Exception error)
+    {
+        if (error is not PartialBatchWriteException<TItem> partial) return;
+
+        buffer.Clear();
+        buffer.AddRange(partial.FailedItems);
     }
 
     public async ValueTask DisposeAsync()

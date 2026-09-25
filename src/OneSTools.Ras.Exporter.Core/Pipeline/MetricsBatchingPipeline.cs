@@ -74,49 +74,51 @@ public sealed class MetricsBatchingPipeline : IAsyncDisposable
     public ValueTask EnqueueLockAsync(LockMetricItem item, CancellationToken cancellationToken = default)
         => _lockProcessor.EnqueueAsync(item, cancellationToken);
 
-    private async Task WriteSummariesAsync(IReadOnlyList<ClusterSummaryMetricItem> items, CancellationToken cancellationToken)
-    {
-        var groups = items.GroupBy(x => _storage.GetDatabaseName(x.ClusterName, x.ClusterId));
-        foreach (var group in groups)
-        {
-            await _storage.WriteClusterSummaryBatchAsync(group.Key, group.ToList(), cancellationToken);
-        }
-    }
+    public long DroppedItems =>
+        _summaryProcessor.DroppedItems + _sessionProcessor.DroppedItems + _processProcessor.DroppedItems +
+        _connectionProcessor.DroppedItems + _lockProcessor.DroppedItems;
 
-    private async Task WriteSessionsAsync(IReadOnlyList<SessionMetricItem> items, CancellationToken cancellationToken)
-    {
-        var groups = items.GroupBy(x => _storage.GetDatabaseName(x.ClusterName, x.ClusterId));
-        foreach (var group in groups)
-        {
-            await _storage.WriteSessionsBatchAsync(group.Key, group.ToList(), cancellationToken);
-        }
-    }
+    private Task WriteSummariesAsync(IReadOnlyList<ClusterSummaryMetricItem> items, CancellationToken cancellationToken)
+        => WriteGroupsAsync(items, x => _storage.GetDatabaseName(x.ClusterName, x.ClusterId),
+            _storage.WriteClusterSummaryBatchAsync, cancellationToken);
 
-    private async Task WriteProcessesAsync(IReadOnlyList<ProcessMetricItem> items, CancellationToken cancellationToken)
-    {
-        var groups = items.GroupBy(x => _storage.GetDatabaseName(x.ClusterName, x.ClusterId));
-        foreach (var group in groups)
-        {
-            await _storage.WriteProcessesBatchAsync(group.Key, group.ToList(), cancellationToken);
-        }
-    }
+    private Task WriteSessionsAsync(IReadOnlyList<SessionMetricItem> items, CancellationToken cancellationToken)
+        => WriteGroupsAsync(items, x => _storage.GetDatabaseName(x.ClusterName, x.ClusterId),
+            _storage.WriteSessionsBatchAsync, cancellationToken);
 
-    private async Task WriteConnectionsAsync(IReadOnlyList<ConnectionMetricItem> items, CancellationToken cancellationToken)
-    {
-        var groups = items.GroupBy(x => _storage.GetDatabaseName(x.ClusterName, x.ClusterId));
-        foreach (var group in groups)
-        {
-            await _storage.WriteConnectionsBatchAsync(group.Key, group.ToList(), cancellationToken);
-        }
-    }
+    private Task WriteProcessesAsync(IReadOnlyList<ProcessMetricItem> items, CancellationToken cancellationToken)
+        => WriteGroupsAsync(items, x => _storage.GetDatabaseName(x.ClusterName, x.ClusterId),
+            _storage.WriteProcessesBatchAsync, cancellationToken);
 
-    private async Task WriteLocksAsync(IReadOnlyList<LockMetricItem> items, CancellationToken cancellationToken)
+    private Task WriteConnectionsAsync(IReadOnlyList<ConnectionMetricItem> items, CancellationToken cancellationToken)
+        => WriteGroupsAsync(items, x => _storage.GetDatabaseName(x.ClusterName, x.ClusterId),
+            _storage.WriteConnectionsBatchAsync, cancellationToken);
+
+    private Task WriteLocksAsync(IReadOnlyList<LockMetricItem> items, CancellationToken cancellationToken)
+        => WriteGroupsAsync(items, x => _storage.GetDatabaseName(x.ClusterName, x.ClusterId),
+            _storage.WriteLocksBatchAsync, cancellationToken);
+
+    private async Task WriteGroupsAsync<TItem>(IReadOnlyList<TItem> items, Func<TItem, string> databaseName,
+        Func<string, IReadOnlyList<TItem>, CancellationToken, Task> write, CancellationToken cancellationToken)
     {
-        var groups = items.GroupBy(x => _storage.GetDatabaseName(x.ClusterName, x.ClusterId));
-        foreach (var group in groups)
+        var failed = new List<TItem>();
+        var errors = new List<Exception>();
+        foreach (var group in items.GroupBy(databaseName))
         {
-            await _storage.WriteLocksBatchAsync(group.Key, group.ToList(), cancellationToken);
+            var rows = group.ToList();
+            try
+            {
+                await write(group.Key, rows, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                failed.AddRange(rows);
+                errors.Add(ex);
+            }
         }
+
+        if (errors.Count > 0)
+            throw new PartialBatchWriteException<TItem>(failed, new AggregateException(errors));
     }
 
     private int _disposed;
