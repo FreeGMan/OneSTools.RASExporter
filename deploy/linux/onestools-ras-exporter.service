@@ -1,8 +1,12 @@
 [Unit]
-Description=OneSTools.Ras Exporter — метрики RAS 1С в ClickHouse
+Description=OneSTools.Ras Exporter — сбор метрик RAS 1С в ClickHouse
 Documentation=file:///opt/onestools/ras-exporter/current/DEPLOYMENT.md
 After=network-online.target
 Wants=network-online.target
+# Битая конфигурация (валидация падает на старте) не должна спамить перезапусками:
+# 3 старта за минуту — и служба уходит в failed с понятным состоянием для мониторинга.
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
