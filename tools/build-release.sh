@@ -144,7 +144,9 @@ for rid in $RID_LIST; do
     STAGE="$OUT_DIR/pkg/$PKG"
     mkdir -p "$STAGE/bin"
     cp -a "$PUB/." "$STAGE/bin/"
-    cp deploy/appsettings.production.example.json LICENSE docs/DEPLOYMENT.md "$STAGE/"
+    # Шаблон конфигурации — рядом с бинарником: хост читает appsettings.json из каталога exe.
+    cp deploy/appsettings.production.example.json "$STAGE/bin/"
+    cp LICENSE docs/DEPLOYMENT.md "$STAGE/"
     case $rid in
         linux-*) cp deploy/linux/*.service deploy/linux/*.env.example "$STAGE/" ;;
         win-*) cp deploy/windows/*.cmd deploy/windows/*.ps1 "$STAGE/" ;;
@@ -198,8 +200,9 @@ cat "$OUT_DIR/SHA256SUMS.txt"
     echo "## Состав архива"
     echo
     echo "- \`bin/\` — self-contained single-file экспортёр (.NET на целевом сервере не нужен,"
-    echo "  сборка с InvariantGlobalization)."
-    echo "- \`appsettings.production.example.json\` — шаблон конфигурации (копируется в \`appsettings.json\`)."
+    echo "  сборка с InvariantGlobalization) и \`bin/appsettings.production.example.json\` —"
+    echo "  шаблон конфигурации кладётся рядом с бинарником (хост читает \`appsettings.json\` из каталога exe)."
+    echo "- Формат журнала: \`dd.MM.yyyy HH:mm:ss [уровень] [категория] текст\` (консольный форматтер \`onestools\`)."
     echo "- Linux: \`onestools-ras-exporter.service\`, \`onestools-ras-exporter.env.example\`."
     echo "- Windows: \`run-as-task.cmd\`, \`install-scheduled-task.ps1\`, \`uninstall-scheduled-task.ps1\`."
     echo "- \`DEPLOYMENT.md\`, \`LICENSE\`."

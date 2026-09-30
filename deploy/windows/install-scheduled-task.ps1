@@ -27,8 +27,11 @@ $exe = Join-Path $root 'bin\OneSTools.Ras.Exporter.exe'
 
 if (-not (Test-Path -LiteralPath $wrapper)) { throw "Не найден $wrapper — распакуйте релизный архив в $InstallDir" }
 if (-not (Test-Path -LiteralPath $exe)) { throw "Не найден $exe" }
-if (-not (Test-Path -LiteralPath (Join-Path $root 'appsettings.json'))) {
-    Write-Warning "Нет appsettings.json: скопируйте appsettings.production.example.json, замените REPLACE_* или задайте переменные окружения уровня машины."
+$bin = Join-Path $root 'bin'
+$expectedConfig = Join-Path $bin 'appsettings.json'
+$templateConfig = Join-Path $bin 'appsettings.production.example.json'
+if (-not (Test-Path -LiteralPath $expectedConfig)) {
+    Write-Warning "Нет ${expectedConfig}: скопируйте $templateConfig в appsettings.json (каталог bin), замените REPLACE_* или задайте переменные окружения уровня машины."
 }
 
 $action = New-ScheduledTaskAction -Execute $wrapper -WorkingDirectory $root
