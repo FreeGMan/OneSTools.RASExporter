@@ -204,8 +204,12 @@ Worker Service и HealthChecks реализованы. Основные сцен
   бэкапит lock-файлы, восстанавливает их и делает RID-agnostic `restore --locked-mode` в конце —
   иначе последующий `tools/security-check.sh` проверяет чужой граф и даёт ложный FAIL.
 - В релиз сознательно НЕ кладутся: `appsettings.json` из репозитория (стендовые хосты/UUID),
-  XML-документация, `MockServer`, `LoadSim`. Оператор копирует
-  `deploy/appsettings.production.example.json` → `appsettings.json`, секреты — env/`local.json`.
+  XML-документация, `MockServer`, `LoadSim`. Шаблон кладётся в `bin/` — хост читает
+  `appsettings.json` из `AppContext.BaseDirectory` (каталог exe), оператор копирует
+  `bin/appsettings.production.example.json` → `bin/appsettings.json`, секреты — env/`local.json`.
+- Формат журнала задаёт `TimestampedConsoleFormatter` (`onestools`): `dd.MM.yyyy HH:mm:ss
+  [уровень] [категория] текст`, параметры — секция `Logging:Console:FormatterOptions:onestools`
+  (её читает и вывод ошибок конфигурации в stderr, поэтому формат один на весь запуск).
 - Deploy-активы в `deploy/`: `linux/` (systemd unit + env-пример), `windows/` (Scheduled Task —
   экспортёр не реализует сервисный контроллер, кодовых изменений не вносим).
 - Windows-артефакт собирается кросс-публишем с Linux-хоста; на шаге publish нужна сеть

@@ -155,8 +155,8 @@ dotnet run --project src/OneSTools.Ras.LoadSim -- --mode chaos --duration 60
 ## Релиз и развёртывание
 
 ```bash
-bash tools/build-release.sh --version 0.1.0 --tag
-# → artifacts/v0.1.0/{archives,nuget,RELEASE_NOTES.md,SHA256SUMS.txt}
+bash tools/build-release.sh --version 0.1.1 --tag
+# → artifacts/v0.1.1/{archives,nuget,RELEASE_NOTES.md,SHA256SUMS.txt}
 ```
 
 Скрипт прогоняет гейты (`restore --locked-mode`, `build` 0 warnings, тесты, аудит
@@ -165,7 +165,9 @@ single-file (`linux-x64`, `win-x64`) — .NET Runtime на целевом сер
 Комплекты для развёртывания и использования библиотек — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 Для боевого контура стендовые значения из `src/OneSTools.Ras.Exporter/appsettings.json`
-в релиз не попадают: в архиве `appsettings.production.example.json` + секреты через env.
+в релиз не попадают: в архиве `bin/appsettings.production.example.json` (копируется в
+`bin/appsettings.json` — конфигурация читается из каталога бинарника) + секреты через env.
+Формат журнала: `dd.MM.yyyy HH:mm:ss [уровень] [категория] текст`.
 
 ## Структура репозитория
 

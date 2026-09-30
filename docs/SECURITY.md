@@ -59,7 +59,8 @@
 
 ## 5. Чек-лист перед ИБ-аудитом / вводом в эксплуатацию
 
-- [ ] В `appsettings.json` нет паролей; учётные данные заданы через `appsettings.local.json`/env.
+- [ ] В `bin/appsettings.json` (рядом с бинарником) нет паролей; учётные данные заданы через
+      `bin/appsettings.local.json`/env.
 - [ ] Учётка RAS-агента: только права мониторинга (не глобальный admin, если platform это позволяет).
 - [ ] ClusterUser: минимум для `getSessionList/processList/connectionList/lockList`.
 - [ ] ClickHouse-пользователь: `GRANT` только на `ras_cluster_%` (INSERT, CREATE для авто-схем), не global.
