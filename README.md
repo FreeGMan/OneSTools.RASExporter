@@ -45,6 +45,7 @@
 | [docs/PORTING_GUIDE.md](docs/PORTING_GUIDE.md) | план C#-порта и ключевые wire-факты |
 | [docs/ARCHITECTURE_REVIEW.md](docs/ARCHITECTURE_REVIEW.md) | ревизия архитектуры vs OneSTools.EventLog, решения R1–R8 |
 | [docs/SECURITY.md](docs/SECURITY.md) | модель угроз, лимиты парсера, обращение с секретами, чек-лист перед аудитом ИБ |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | развёртывание на целевом сервере: сборка релиза, Linux (systemd) и Windows (Scheduled Task), конфигурация, наблюдение, обновление/откат |
 | [AGENT.md](AGENT.md) | регламент разработки (для AI-агентов) |
 
 ## Быстрый старт
@@ -151,13 +152,30 @@ dotnet run --project src/OneSTools.Ras.LoadSim -- --mode chaos --duration 60
 - Проверка зависимостей/конфига: `bash tools/security-check.sh` (NuGetAudit, JSON-отчёт по прямым
   и транзитивным пакетам, locked-mode restore, проверка секретов; требуется `jq`).
 
+## Релиз и развёртывание
+
+```bash
+bash tools/build-release.sh --version 0.1.0 --tag
+# → artifacts/v0.1.0/{archives,nuget,RELEASE_NOTES.md,SHA256SUMS.txt}
+```
+
+Скрипт прогоняет гейты (`restore --locked-mode`, `build` 0 warnings, тесты, аудит
+зависимостей), пакует библиотеки в `.nupkg` и собирает экспортёр в self-contained
+single-file (`linux-x64`, `win-x64`) — .NET Runtime на целевом сервере не требуется.
+Комплекты для развёртывания и использования библиотек — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+Для боевого контура стендовые значения из `src/OneSTools.Ras.Exporter/appsettings.json`
+в релиз не попадают: в архиве `appsettings.production.example.json` + секреты через env.
+
 ## Структура репозитория
 
 ```
 src/                  # проекты решения (см. таблицу выше)
 tests/                # unit + integration
 docs/                 # спецификации и обзоры (см. таблицу документации)
-tools/                # security-check.sh
+tools/                # security-check.sh, build-release.sh
+deploy/               # релизные активы: systemd unit, env-пример, Scheduled Task скрипты,
+                      # appsettings.production.example.json
 ras-minimal/          # Dockerfile образа RAS для dev-стенда (файлы платформы — локально, см. ras-minimal/README.md)
 .devcontainer/        # Dockerfile + compose dev-окружения
 ```

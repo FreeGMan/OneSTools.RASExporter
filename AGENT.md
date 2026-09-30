@@ -81,6 +81,8 @@
   - `dotnet run --project src/OneSTools.Ras.Exporter` — служба экспорта (appsettings у бинарника; local < env < args)
   - `dotnet run --project src/OneSTools.Ras.LoadSim -- --mode all|chaos|…` — нагрузка/хаос, JSON-отчёты
   - `bash tools/security-check.sh` — аудит зависимостей/конфига (перед ИБ-проверкой)
+  - `bash tools/build-release.sh --version V [--tag]` — релизный комплект: гейты → pack библиотек
+    → self-contained single-file publish (`linux-x64`, `win-x64`) → `artifacts/vV/` (gitignored)
   - Тесты живого стенда: `RAC_TEST_RAS_HOST`/`RAC_TEST_RAS_PORT` (по умолчанию `1c-test-server:1545`)
 - Подмена mock-ras реальным стендом: скопировать `.devcontainer/docker-compose.override.example.yml`
   в `docker-compose.override.yml`, указать адрес стенда, сменить `Host` в `appsettings.json`.
@@ -186,3 +188,27 @@ Worker Service и HealthChecks реализованы. Основные сцен
   чужие JAR) — только ссылки и атрибуция (см. README «Источники и референсы»).
 - НЕ использовать стандартный protobuf-сериализатор для обмена с RAS (только собственные кодеки).
 - НЕ оставлять закомментированный код и мертвый код в `src/`.
+
+---
+
+## 12. Релиз и развёртывание
+
+- Комплект собирает `tools/build-release.sh`: locked-mode restore → build (0 warnings) → тесты
+  → `security-check.sh` → `dotnet pack` (`OneSTools.Ras.Client`, `OneSTools.Ras.Exporter.Core`)
+  → `dotnet publish` экспортёра self-contained single-file по RID (`linux-x64`, `win-x64`)
+  → `artifacts/v<VERSION>/{archives,nuget,SHA256SUMS.txt,RELEASE_NOTES.md}`.
+- Версия — одна на всё: `<Version>` в `Directory.Build.props`; `--version`/`--tag` в скрипте.
+  До заморозки публичного API (R7 в docs/ARCHITECTURE_REVIEW.md) — 0.x.
+- Publish с `RuntimeIdentifier` раскрывает легаси-граф netstandard1.x и перезаписывает
+  `packages.lock.json`: пин `System.Private.Uri` 4.3.2 действует только для RID-графа, а скрипт
+  бэкапит lock-файлы, восстанавливает их и делает RID-agnostic `restore --locked-mode` в конце —
+  иначе последующий `tools/security-check.sh` проверяет чужой граф и даёт ложный FAIL.
+- В релиз сознательно НЕ кладутся: `appsettings.json` из репозитория (стендовые хосты/UUID),
+  XML-документация, `MockServer`, `LoadSim`. Оператор копирует
+  `deploy/appsettings.production.example.json` → `appsettings.json`, секреты — env/`local.json`.
+- Deploy-активы в `deploy/`: `linux/` (systemd unit + env-пример), `windows/` (Scheduled Task —
+  экспортёр не реализует сервисный контроллер, кодовых изменений не вносим).
+- Windows-артефакт собирается кросс-публишем с Linux-хоста; на шаге publish нужна сеть
+  (runtime-pack'ы с nuget.org).
+- Публикация на nuget.org не выполняется: пакеты только из локального фида, не подписаны.
+- Развёртывание и эксплуатация — docs/DEPLOYMENT.md.
