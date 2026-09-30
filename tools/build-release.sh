@@ -162,6 +162,7 @@ for rid in $RID_LIST; do
     rm -rf "$STAGE"
     du -sh "$OUT_DIR/${ARCHIVES[-1]}"
 done
+rmdir "$OUT_DIR/pkg" 2>/dev/null || true
 restore_locks
 trap - EXIT
 
