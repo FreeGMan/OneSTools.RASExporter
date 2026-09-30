@@ -6,6 +6,7 @@ obj/
 .vs/
 *.nupkg
 TestResults/
+artifacts/
 
 ## Rider / IDE
 .idea/

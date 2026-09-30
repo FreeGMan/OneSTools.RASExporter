@@ -11,6 +11,17 @@
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Authors>Makurin Egor</Authors>
+    <Company>OneSTools</Company>
+    <Product>OneSTools.Ras</Product>
+    <Copyright>© 2026 Makurin Egor</Copyright>
+    <Deterministic>true</Deterministic>
+    <DebugType>embedded</DebugType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
   <!-- Supply-chain hardening (TODO.md T7/S5): аудит NuGet на уязвимости (включая транзитивные)
        и детерминированные lock-файлы для воспроизводимого restore/аудита. -->
   <PropertyGroup>
@@ -19,5 +30,13 @@
     <NuGetAuditLevel>low</NuGetAuditLevel>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
+
+  <!-- Restore с RuntimeIdentifier (self-contained publish) раскрывает легаси-граф
+       netstandard1.x, куда входит уязвимый System.Private.Uri 4.3.0 (GHSA-xhfc-gr8f-ffwc,
+       исправлено в 4.3.2). Пин действует только для RID-графа: обычный restore,
+       lock-файлы и зависимости публикуемых NuGet-пакетов не меняются. -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <PackageReference Include="System.Private.Uri" Version="4.3.2" PrivateAssets="all" />
+  </ItemGroup>
 
 </Project>

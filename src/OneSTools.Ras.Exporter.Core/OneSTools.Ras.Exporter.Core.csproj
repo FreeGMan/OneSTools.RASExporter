@@ -12,6 +12,19 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <IsPackable>true</IsPackable>
+    <PackageId>OneSTools.Ras.Exporter.Core</PackageId>
+    <Description>Ядро сбора метрик RAS («1С:Предприятие») с пакетной записью в ClickHouse: коллекторы, конвейер батчинга с ретраями и гейтом доступности хранилища, авто-схемы и bulk insert. Используется службой OneSTools.Ras.Exporter.</Description>
+    <PackageTags>1c;1ce;ras;swp;metrics;clickhouse;exporter</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Публичный API задокументирован; константы, значения enum и конструкторы — без XML-doc. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
 </Project>

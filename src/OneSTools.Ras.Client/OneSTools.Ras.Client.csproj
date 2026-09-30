@@ -2,7 +2,20 @@
 
   <PropertyGroup>
     <RootNamespace>OneSTools.Ras.Client</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>OneSTools.Ras.Client</PackageId>
+    <Description>Независимый C#-клиент сервера администрирования 1С (RAS) по бинарному протоколу SWP: транспорт, wire-кодеки, RasAdminClient. Без Java SDK и утилиты rac. Реализация не официальна и не одобрена фирмой «1С».</Description>
+    <PackageTags>1c;1ce;ras;swp;rac;administration;metrics</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Публичный API задокументирован; константы, значения enum и конструкторы — без XML-doc. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
