@@ -1,0 +1,36 @@
+[Unit]
+Description=OneSTools.Ras Exporter — метрики RAS 1С в ClickHouse
+Documentation=file:///opt/onestools/ras-exporter/current/DEPLOYMENT.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rasexporter
+Group=rasexporter
+WorkingDirectory=/opt/onestools/ras-exporter/current/bin
+ExecStart=/opt/onestools/ras-exporter/current/bin/OneSTools.Ras.Exporter
+EnvironmentFile=-/etc/onestools/ras-exporter/onestools-ras-exporter.env
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=120
+LimitNOFILE=65536
+
+# Остановка по SIGINT: конвейер успевает отдать накопленные батчи (graceful shutdown).
+# TimeoutStopSec завышен против хостовых 5 c — финальный drain может идти 2×5 c на тип метрик.
+# MemoryDenyWriteExecute НЕ включать: JIT .NET требует исполняемую память.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
