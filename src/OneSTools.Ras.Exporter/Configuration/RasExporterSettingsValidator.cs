@@ -33,7 +33,8 @@ public sealed class RasExporterSettingsValidator : IValidateOptions<RasExporterS
             else
             {
                 int[] intervals = [server.PollIntervals.ClustersSeconds, server.PollIntervals.SessionsSeconds,
-                    server.PollIntervals.ProcessesSeconds, server.PollIntervals.ConnectionsSeconds, server.PollIntervals.LocksSeconds];
+                    server.PollIntervals.ProcessesSeconds, server.PollIntervals.ConnectionsSeconds,
+                    server.PollIntervals.LocksSeconds, server.PollIntervals.InfoBasesSeconds];
                 if (intervals.Any(value => value is < 1 or > 86400))
                     errors.Add($"{prefix}: интервалы опроса должны быть в пределах 1..86400 секунд");
             }

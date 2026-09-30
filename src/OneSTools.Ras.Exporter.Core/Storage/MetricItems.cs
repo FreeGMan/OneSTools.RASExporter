@@ -41,3 +41,14 @@ public sealed record LockMetricItem(
     Guid ClusterId,
     string ClusterName,
     LockInfo Lock);
+
+/// <summary>
+/// Снимок информационной базы из getInfoBases для таблицы infobases.
+/// Учётные данные СУБД в модели RAS (db_pwd, строка подключения внешнего менеджера сессий)
+/// в хранилище не записываются.
+/// </summary>
+public sealed record InfobaseMetricItem(
+    DateTime Timestamp,
+    Guid ClusterId,
+    string ClusterName,
+    InfobaseInfo Infobase);

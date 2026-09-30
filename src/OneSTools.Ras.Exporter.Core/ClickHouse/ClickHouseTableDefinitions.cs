@@ -8,6 +8,7 @@ public static class ClickHouseTableDefinitions
     public const string ProcessesTableName = "processes";
     public const string ConnectionsTableName = "connections";
     public const string LocksTableName = "locks";
+    public const string InfobasesTableName = "infobases";
 
     public static string CreateDatabase(string databaseName) =>
         $"CREATE DATABASE IF NOT EXISTS `{databaseName}`";
@@ -166,4 +167,42 @@ public static class ClickHouseTableDefinitions
         ENGINE = MergeTree()
         PARTITION BY toYYYYMM(_time)
         ORDER BY (_time, cluster_id, connection_id, object_id);";
+
+    /// <summary>
+    /// Снапшоты списка инфобаз кластера (getInfoBases). Учётные данные СУБД
+    /// (`db_pwd`, строка подключения внешнего менеджера сессий) не сохраняются.
+    /// Окна запрета — Nullable: RAS отдаёт «нет запрета» как 0001-01-01, что вне диапазона DateTime64.
+    /// </summary>
+    public static string CreateInfobasesTable(string databaseName) =>
+        $@"CREATE TABLE IF NOT EXISTS `{databaseName}`.`{InfobasesTableName}`
+        (
+            `_time` DateTime64(3) CODEC(DoubleDelta, ZSTD),
+            `cluster_id` UUID,
+            `cluster_name` LowCardinality(String),
+            `infobase_id` UUID,
+            `name` LowCardinality(String),
+            `descr` String,
+            `locale` LowCardinality(String),
+            `date_offset` Int32,
+            `dbms` LowCardinality(String),
+            `db_server` String,
+            `db_name` String,
+            `db_user` String,
+            `security_level` Int32,
+            `license_distribution` Int32,
+            `sessions_deny` UInt8,
+            `scheduled_jobs_deny` UInt8,
+            `external_session_manager_required` UInt8,
+            `security_profile_name` String,
+            `safe_mode_security_profile_name` String,
+            `reserve_working_processes` UInt8,
+            `denied_from` Nullable(DateTime64(3)),
+            `denied_to` Nullable(DateTime64(3)),
+            `denied_message` String,
+            `denied_parameter` String,
+            `permission_code` String
+        )
+        ENGINE = MergeTree()
+        PARTITION BY toYYYYMM(_time)
+        ORDER BY (_time, cluster_id, infobase_id);";
 }

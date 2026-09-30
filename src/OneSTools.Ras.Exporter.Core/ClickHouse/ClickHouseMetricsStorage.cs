@@ -107,7 +107,8 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
                 ClickHouseTableDefinitions.CreateSessionsTable(databaseName),
                 ClickHouseTableDefinitions.CreateProcessesTable(databaseName),
                 ClickHouseTableDefinitions.CreateConnectionsTable(databaseName),
-                ClickHouseTableDefinitions.CreateLocksTable(databaseName)
+                ClickHouseTableDefinitions.CreateLocksTable(databaseName),
+                ClickHouseTableDefinitions.CreateInfobasesTable(databaseName)
             };
 
             foreach (var ddl in tableDdls)
@@ -419,6 +420,69 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
         using var bulkCopy = new ClickHouseBulkCopy(connection)
         {
             DestinationTableName = $"`{databaseName}`.`{ClickHouseTableDefinitions.LocksTableName}`",
+            ColumnNames = columns,
+            BatchSize = _batchSize
+        };
+
+        await bulkCopy.InitAsync();
+        await bulkCopy.WriteToServerAsync(rows, cancellationToken);
+    }
+
+    public async Task WriteInfobasesBatchAsync(string databaseName, IReadOnlyList<InfobaseMetricItem> items, CancellationToken cancellationToken = default)
+    {
+        ValidateDatabaseName(databaseName);
+
+        if (items.Count == 0) return;
+
+        using var connection = new ClickHouseConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var columns = new[]
+        {
+            "_time", "cluster_id", "cluster_name", "infobase_id", "name", "descr", "locale", "date_offset",
+            "dbms", "db_server", "db_name", "db_user", "security_level", "license_distribution",
+            "sessions_deny", "scheduled_jobs_deny", "external_session_manager_required",
+            "security_profile_name", "safe_mode_security_profile_name", "reserve_working_processes",
+            "denied_from", "denied_to", "denied_message", "denied_parameter", "permission_code"
+        };
+
+        var rows = new List<object?[]>(items.Count);
+        foreach (var item in items)
+        {
+            var ib = item.Infobase;
+            rows.Add(new object?[]
+            {
+                item.Timestamp,
+                item.ClusterId,
+                item.ClusterName,
+                ib.Uuid,
+                ib.Name,
+                ib.Descr,
+                ib.Locale,
+                ib.DateOffset,
+                ib.Dbms,
+                ib.DbServer,
+                ib.DbName,
+                ib.DbUser,
+                ib.SecurityLevel,
+                ib.LicenseDistribution,
+                (byte)(ib.SessionsDeny ? 1 : 0),
+                (byte)(ib.ScheduledJobsDeny ? 1 : 0),
+                (byte)(ib.ExternalSessionManagerRequired ? 1 : 0),
+                ib.SecurityProfileName,
+                ib.SafeModeSecurityProfileName,
+                (byte)(ib.ReserveWorkingProcesses ? 1 : 0),
+                ib.DeniedFrom == default ? null : ib.DeniedFrom,
+                ib.DeniedTo == default ? null : ib.DeniedTo,
+                ib.DeniedMessage,
+                ib.DeniedParameter,
+                ib.PermissionCode
+            });
+        }
+
+        using var bulkCopy = new ClickHouseBulkCopy(connection)
+        {
+            DestinationTableName = $"`{databaseName}`.`{ClickHouseTableDefinitions.InfobasesTableName}`",
             ColumnNames = columns,
             BatchSize = _batchSize
         };

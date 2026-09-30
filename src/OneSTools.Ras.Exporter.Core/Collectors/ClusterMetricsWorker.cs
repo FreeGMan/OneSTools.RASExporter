@@ -15,9 +15,10 @@ public sealed record ClusterCollectorIntervals(
     TimeSpan Sessions,
     TimeSpan Processes,
     TimeSpan Connections,
-    TimeSpan Locks);
+    TimeSpan Locks,
+    TimeSpan InfoBases);
 
-/// <summary>Композиция 5 коллекторов одного кластера поверх одного RasAdminClient-соединения (паттерн C, docs/SECURITY.md §2).</summary>
+/// <summary>Композиция 6 коллекторов одного кластера поверх одного RasAdminClient-соединения (паттерн C, docs/SECURITY.md §2).</summary>
 public sealed class ClusterMetricsWorker
 {
     private readonly RasAdminClient _client;
@@ -90,6 +91,7 @@ public sealed class ClusterMetricsWorker
         var processCollector = new ProcessCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Processes, _logger, _gate, _pollStatus);
         var connectionCollector = new ConnectionCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Connections, _logger, _gate, _pollStatus);
         var lockCollector = new LockCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.Locks, _logger, _gate, _pollStatus);
+        var infobaseCollector = new InfobaseCollector(_client, _clusterId, _clusterName, _pipeline, _intervals.InfoBases, _logger, _gate, _pollStatus);
 
         // Коллекторы работают параллельно (запросы сериализуются гейтом эндпоинта);
         // первая ошибка останавливает остальных — переподключение делает вызывающий слой.
@@ -100,7 +102,8 @@ public sealed class ClusterMetricsWorker
             sessionCollector.RunAsync(sessionCts.Token),
             processCollector.RunAsync(sessionCts.Token),
             connectionCollector.RunAsync(sessionCts.Token),
-            lockCollector.RunAsync(sessionCts.Token)
+            lockCollector.RunAsync(sessionCts.Token),
+            infobaseCollector.RunAsync(sessionCts.Token)
         };
 
         var first = await Task.WhenAny(tasks);

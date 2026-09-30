@@ -22,6 +22,7 @@ public sealed class MetricsBatchingPipeline : IAsyncDisposable
     private readonly BatchProcessor<ProcessMetricItem> _processProcessor;
     private readonly BatchProcessor<ConnectionMetricItem> _connectionProcessor;
     private readonly BatchProcessor<LockMetricItem> _lockProcessor;
+    private readonly BatchProcessor<InfobaseMetricItem> _infobaseProcessor;
 
     public MetricsBatchingPipeline(
         IMetricsStorage storage,
@@ -47,6 +48,8 @@ public sealed class MetricsBatchingPipeline : IAsyncDisposable
             WriteConnectionsAsync, batchSize, flushInterval, _logger, availabilityCallback: availability);
         _lockProcessor = new BatchProcessor<LockMetricItem>(
             WriteLocksAsync, batchSize, flushInterval, _logger, availabilityCallback: availability);
+        _infobaseProcessor = new BatchProcessor<InfobaseMetricItem>(
+            WriteInfobasesAsync, batchSize, flushInterval, _logger, availabilityCallback: availability);
     }
 
     public void Start()
@@ -56,6 +59,7 @@ public sealed class MetricsBatchingPipeline : IAsyncDisposable
         _processProcessor.Start();
         _connectionProcessor.Start();
         _lockProcessor.Start();
+        _infobaseProcessor.Start();
         _logger.LogInformation("Конвейер батчинга метрик запущен");
     }
 
@@ -74,9 +78,12 @@ public sealed class MetricsBatchingPipeline : IAsyncDisposable
     public ValueTask EnqueueLockAsync(LockMetricItem item, CancellationToken cancellationToken = default)
         => _lockProcessor.EnqueueAsync(item, cancellationToken);
 
+    public ValueTask EnqueueInfobaseAsync(InfobaseMetricItem item, CancellationToken cancellationToken = default)
+        => _infobaseProcessor.EnqueueAsync(item, cancellationToken);
+
     public long DroppedItems =>
         _summaryProcessor.DroppedItems + _sessionProcessor.DroppedItems + _processProcessor.DroppedItems +
-        _connectionProcessor.DroppedItems + _lockProcessor.DroppedItems;
+        _connectionProcessor.DroppedItems + _lockProcessor.DroppedItems + _infobaseProcessor.DroppedItems;
 
     private Task WriteSummariesAsync(IReadOnlyList<ClusterSummaryMetricItem> items, CancellationToken cancellationToken)
         => WriteGroupsAsync(items, x => _storage.GetDatabaseName(x.ClusterName, x.ClusterId),
@@ -97,6 +104,10 @@ public sealed class MetricsBatchingPipeline : IAsyncDisposable
     private Task WriteLocksAsync(IReadOnlyList<LockMetricItem> items, CancellationToken cancellationToken)
         => WriteGroupsAsync(items, x => _storage.GetDatabaseName(x.ClusterName, x.ClusterId),
             _storage.WriteLocksBatchAsync, cancellationToken);
+
+    private Task WriteInfobasesAsync(IReadOnlyList<InfobaseMetricItem> items, CancellationToken cancellationToken)
+        => WriteGroupsAsync(items, x => _storage.GetDatabaseName(x.ClusterName, x.ClusterId),
+            _storage.WriteInfobasesBatchAsync, cancellationToken);
 
     private async Task WriteGroupsAsync<TItem>(IReadOnlyList<TItem> items, Func<TItem, string> databaseName,
         Func<string, IReadOnlyList<TItem>, CancellationToken, Task> write, CancellationToken cancellationToken)
@@ -133,6 +144,7 @@ public sealed class MetricsBatchingPipeline : IAsyncDisposable
         await _processProcessor.DisposeAsync();
         await _connectionProcessor.DisposeAsync();
         await _lockProcessor.DisposeAsync();
+        await _infobaseProcessor.DisposeAsync();
         _logger.LogInformation("Конвейер батчинга метрик остановлен");
     }
 }

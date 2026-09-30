@@ -46,12 +46,14 @@ public sealed class PollIntervalsSettings
     public int SessionsSeconds { get; set; } = 5;
     public int ConnectionsSeconds { get; set; } = 10;
     public int LocksSeconds { get; set; } = 5;
+    public int InfoBasesSeconds { get; set; } = 300;
 
     public TimeSpan Clusters => TimeSpan.FromSeconds(ClustersSeconds);
     public TimeSpan Processes => TimeSpan.FromSeconds(ProcessesSeconds);
     public TimeSpan Sessions => TimeSpan.FromSeconds(SessionsSeconds);
     public TimeSpan Connections => TimeSpan.FromSeconds(ConnectionsSeconds);
     public TimeSpan Locks => TimeSpan.FromSeconds(LocksSeconds);
+    public TimeSpan InfoBases => TimeSpan.FromSeconds(InfoBasesSeconds);
 }
 
 /// <summary>Конкретный кластер 1С на сервере RAS.</summary>

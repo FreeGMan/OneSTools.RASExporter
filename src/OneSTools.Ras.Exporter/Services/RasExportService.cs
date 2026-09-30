@@ -88,7 +88,8 @@ public sealed class RasExportService : BackgroundService
             server.PollIntervals.Sessions,
             server.PollIntervals.Processes,
             server.PollIntervals.Connections,
-            server.PollIntervals.Locks);
+            server.PollIntervals.Locks,
+            server.PollIntervals.InfoBases);
 
         var running = new Dictionary<(Guid, string), CancellationTokenSource>();
         var runningHealthKeys = new Dictionary<(Guid, string), string>();
@@ -210,7 +211,8 @@ public sealed class RasExportService : BackgroundService
                     ["sessions"] = intervals.Sessions,
                     ["processes"] = intervals.Processes,
                     ["connections"] = intervals.Connections,
-                    ["locks"] = intervals.Locks
+                    ["locks"] = intervals.Locks,
+                    ["infobases"] = intervals.InfoBases
                 });
                 clusterLogger.LogInformation("Сессия RAS для кластера {ClusterName} установлена", target.ClusterName);
 
