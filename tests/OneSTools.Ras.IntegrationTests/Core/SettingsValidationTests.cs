@@ -32,6 +32,24 @@ public sealed class SettingsValidationTests
     }
 
     [Fact]
+    public void InfoBases_Poll_Interval_Is_Validated_Like_Other_Metrics()
+    {
+        var settings = new RasExporterSettings
+        {
+            Servers = [new RasServerSettings
+            {
+                Name = "server",
+                Host = "ras",
+                PollIntervals = new PollIntervalsSettings { InfoBasesSeconds = 0 },
+                Clusters = []
+            }]
+        };
+
+        Assert.True(new RasExporterSettingsValidator().Validate(null, settings).Failed);
+        Assert.Equal(300, TimeSpan.FromSeconds(new PollIntervalsSettings().InfoBasesSeconds).TotalSeconds);
+    }
+
+    [Fact]
     public void Valid_Configuration_Is_Accepted_And_Invalid_Batch_Size_Is_Rejected()
     {
         Assert.False(new RasExporterSettingsValidator().Validate(null, new RasExporterSettings

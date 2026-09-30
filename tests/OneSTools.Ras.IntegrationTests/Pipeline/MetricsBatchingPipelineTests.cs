@@ -23,6 +23,7 @@ public sealed class MetricsBatchingPipelineTests
         public ConcurrentBag<ProcessMetricItem> WrittenProcesses { get; } = new();
         public ConcurrentBag<ConnectionMetricItem> WrittenConnections { get; } = new();
         public ConcurrentBag<LockMetricItem> WrittenLocks { get; } = new();
+        public ConcurrentBag<InfobaseMetricItem> WrittenInfobases { get; } = new();
         public ConcurrentDictionary<string, int> SessionWriteAttempts { get; } = new();
         public Func<string, int, bool>? FailSessionWrite { get; set; }
         public int InitializationAttempts;
@@ -73,6 +74,12 @@ public sealed class MetricsBatchingPipelineTests
             foreach (var item in items) WrittenLocks.Add(item);
             return Task.CompletedTask;
         }
+
+        public Task WriteInfobasesBatchAsync(string databaseName, IReadOnlyList<InfobaseMetricItem> items, CancellationToken cancellationToken = default)
+        {
+            foreach (var item in items) WrittenInfobases.Add(item);
+            return Task.CompletedTask;
+        }
     }
 
     [Fact]
@@ -92,13 +99,15 @@ public sealed class MetricsBatchingPipelineTests
             await pipeline.EnqueueProcessAsync(new ProcessMetricItem(now, clusterId, "ClusterA", new ProcessInfo { Pid = $"{1000 + i}" }));
             await pipeline.EnqueueConnectionAsync(new ConnectionMetricItem(now, clusterId, "ClusterA", new ConnectionInfo { Id = i }));
             await pipeline.EnqueueLockAsync(new LockMetricItem(now, clusterId, "ClusterA", new LockInfo { Description = $"Lock_{i}" }));
+            await pipeline.EnqueueInfobaseAsync(new InfobaseMetricItem(now, clusterId, "ClusterA", new InfobaseInfo { Name = $"ib_{i}" }));
         }
 
-        // Ждём полный сброс всех четырёх потоков (без жёсткого Delay: гонки с планировщиком при
+        // Ждём полный сброс всех потоков (без жёсткого Delay: гонки с планировщиком при
         // параллельном запуске коллекций давали флук).
         using var wait = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         while (storage.WrittenSessions.Count < 20 || storage.WrittenProcesses.Count < 20 ||
-               storage.WrittenConnections.Count < 20 || storage.WrittenLocks.Count < 20)
+               storage.WrittenConnections.Count < 20 || storage.WrittenLocks.Count < 20 ||
+               storage.WrittenInfobases.Count < 20)
         {
             await Task.Delay(50, wait.Token);
         }
@@ -107,6 +116,7 @@ public sealed class MetricsBatchingPipelineTests
         Assert.Equal(20, storage.WrittenProcesses.Count);
         Assert.Equal(20, storage.WrittenConnections.Count);
         Assert.Equal(20, storage.WrittenLocks.Count);
+        Assert.Equal(20, storage.WrittenInfobases.Count);
     }
 
     [Fact]
@@ -139,7 +149,7 @@ public sealed class MetricsBatchingPipelineTests
         await using var pipeline = new MetricsBatchingPipeline(storage);
         var worker = new ClusterMetricsWorker(client, Guid.NewGuid(), "A", pipeline, storage,
             new ClusterCollectorIntervals(TimeSpan.FromHours(1), TimeSpan.FromHours(1), TimeSpan.FromHours(1),
-                TimeSpan.FromHours(1), TimeSpan.FromHours(1)));
+                TimeSpan.FromHours(1), TimeSpan.FromHours(1), TimeSpan.FromHours(1)));
         using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var running = worker.RunAsync(stop.Token);
         await storage.InitializationReady.Task.WaitAsync(stop.Token);

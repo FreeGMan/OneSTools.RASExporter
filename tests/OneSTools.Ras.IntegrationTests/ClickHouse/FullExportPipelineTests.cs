@@ -129,12 +129,14 @@ public sealed class FullExportPipelineTests : IAsyncLifetime
         var processCollector = new ProcessCollector(client, cluster.Uuid, cluster.Name, pipeline, TimeSpan.FromSeconds(10));
         var connectionCollector = new ConnectionCollector(client, cluster.Uuid, cluster.Name, pipeline, TimeSpan.FromSeconds(10));
         var lockCollector = new LockCollector(client, cluster.Uuid, cluster.Name, pipeline, TimeSpan.FromSeconds(10));
+        var infobaseCollector = new InfobaseCollector(client, cluster.Uuid, cluster.Name, pipeline, TimeSpan.FromSeconds(10));
 
         await summaryCollector.CollectOnceAsync(cts.Token);
         await sessionCollector.CollectOnceAsync(cts.Token);
         await processCollector.CollectOnceAsync(cts.Token);
         await connectionCollector.CollectOnceAsync(cts.Token);
         await lockCollector.CollectOnceAsync(cts.Token);
+        await infobaseCollector.CollectOnceAsync(cts.Token);
 
         // 5. Allow pipeline to flush (wait for flush interval + batch processing)
         await Task.Delay(1500, cts.Token);
@@ -156,5 +158,6 @@ public sealed class FullExportPipelineTests : IAsyncLifetime
         Assert.True(await GetCountAsync(ClickHouseTableDefinitions.ProcessesTableName) >= 1);
         Assert.True(await GetCountAsync(ClickHouseTableDefinitions.ConnectionsTableName) >= 1);
         Assert.True(await GetCountAsync(ClickHouseTableDefinitions.LocksTableName) >= 1);
+        Assert.True(await GetCountAsync(ClickHouseTableDefinitions.InfobasesTableName) >= 1);
     }
 }

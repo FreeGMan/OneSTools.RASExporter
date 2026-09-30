@@ -30,5 +30,14 @@ public sealed class ClickHouseTableDefinitionsTests
 
         string locksDdl = ClickHouseTableDefinitions.CreateLocksTable(db);
         Assert.Contains("`test_cluster_db`.`locks`", locksDdl);
+
+        string infobasesDdl = ClickHouseTableDefinitions.CreateInfobasesTable(db);
+        Assert.Contains("`test_cluster_db`.`infobases`", infobasesDdl);
+        Assert.Contains("`infobase_id` UUID", infobasesDdl);
+        Assert.Contains("`denied_from` Nullable(DateTime64(3))", infobasesDdl);
+        Assert.Contains("ORDER BY (_time, cluster_id, infobase_id)", infobasesDdl);
+        // Учётные данные СУБД не должны попадать в аналитическое хранилище.
+        Assert.DoesNotContain("db_pwd", infobasesDdl);
+        Assert.DoesNotContain("external_session_manager_connection_string", infobasesDdl);
     }
 }

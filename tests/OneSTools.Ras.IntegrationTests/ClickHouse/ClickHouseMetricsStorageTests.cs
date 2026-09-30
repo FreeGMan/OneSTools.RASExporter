@@ -150,7 +150,39 @@ public sealed class ClickHouseMetricsStorageTests
 
         await storage.WriteLocksBatchAsync(TestDatabase, new[] { lockItem }, cts.Token);
 
-        // 7. Verify counts in ClickHouse
+        // 7. Insert Infobase
+        var infobaseItem = new InfobaseMetricItem(
+            now,
+            clusterId,
+            clusterName,
+            new InfobaseInfo
+            {
+                Uuid = Guid.NewGuid(),
+                Name = "test_infobase",
+                Descr = "Тестовая информационная база",
+                Locale = "ru_RU",
+                Dbms = "PostgreSQL",
+                DbServer = "db-01.internal",
+                DbName = "test_infobase",
+                DbUser = "postgres",
+                SecurityLevel = 1,
+                SessionsDeny = false,
+                ScheduledJobsDeny = false,
+                ExternalSessionManagerRequired = false,
+                SecurityProfileName = "Default",
+                SafeModeSecurityProfileName = "SafeMode",
+                ReserveWorkingProcesses = true,
+                DeniedFrom = now.AddDays(-1),
+                DeniedTo = now.AddDays(1),
+                DeniedMessage = "Обновление конфигурации",
+                DeniedParameter = "",
+                PermissionCode = "PC-1",
+                DateOffset = 180
+            });
+
+        await storage.WriteInfobasesBatchAsync(TestDatabase, new[] { infobaseItem }, cts.Token);
+
+        // 8. Verify counts in ClickHouse
         using var conn = new ClickHouseConnection(ConnectionString);
         await conn.OpenAsync(cts.Token);
 
@@ -167,5 +199,21 @@ public sealed class ClickHouseMetricsStorageTests
         Assert.True(await GetCountAsync(ClickHouseTableDefinitions.ProcessesTableName) >= 1);
         Assert.True(await GetCountAsync(ClickHouseTableDefinitions.ConnectionsTableName) >= 1);
         Assert.True(await GetCountAsync(ClickHouseTableDefinitions.LocksTableName) >= 1);
+
+        Assert.True(await GetCountAsync(ClickHouseTableDefinitions.InfobasesTableName) >= 1);
+        using (var verify = new ClickHouseConnection(ConnectionString))
+        {
+            await verify.OpenAsync(cts.Token);
+            using var cmd = verify.CreateCommand();
+            cmd.CommandText = $"SELECT name, db_user, denied_from, denied_to, reserve_working_processes " +
+                $"FROM `{TestDatabase}`.`{ClickHouseTableDefinitions.InfobasesTableName}` LIMIT 1";
+            using var reader = await cmd.ExecuteReaderAsync(cts.Token);
+            Assert.True(await reader.ReadAsync(cts.Token));
+            Assert.Equal("test_infobase", reader.GetString(0));
+            Assert.Equal("postgres", reader.GetString(1));
+            Assert.False(reader.IsDBNull(2));
+            Assert.False(reader.IsDBNull(3));
+            Assert.Equal((byte)1, reader.GetByte(4));
+        }
     }
 }
