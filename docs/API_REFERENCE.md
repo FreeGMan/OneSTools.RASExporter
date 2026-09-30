@@ -100,6 +100,11 @@ void shutdown();
 
 ### 2.7 Инфобазы
 
+Методы 25/26 (`getInfoBasesShort`, `getInfoBases`) и 28 (`getInfoBaseInfo`) реализованы в
+`RasAdminClient` и используются экспортёром: `getInfoBases` питает таблицу `infobases`
+(`InfobaseCollector`, `RasExporter:Servers[*]:PollIntervals:InfoBasesSeconds`, базово 300 c).
+Поля `db_pwd` и `external_session_manager_connection_string` в ClickHouse не сохраняются.
+
 | # | Сигнатура Java | Описание | Wire-тип запроса |
 |---|---------------|----------|-----------------|
 | 25 | `List<IInfoBaseInfoShort> getInfoBasesShort(UUID clusterId)` | Получение краткого списка инфобаз | `GET_INFOBASES_SHORT_REQUEST` |

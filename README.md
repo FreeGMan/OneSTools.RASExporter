@@ -18,7 +18,7 @@
 |---|---|
 | Протокол | выведен из поведения обращения официальной Java-библиотеки с живому серверу **1С 8.3.25.1520** (стенд в изолированном контуре) |
 | API | 27 методов в публичном `RasAdminClient` из 84 методов Java API; `docs/GAP_ANALYSIS.md` оценивает наличие proto-контрактов, а не реализацию C#; negotiation версий сервиса `3.0…14.0` |
-| Тесты | 147: кодеки/сообщения (unit), mock-интеграция, тесты живого стенда и ClickHouse; нагрузочный харнесс запускается отдельно |
+| Тесты | 154: кодеки/сообщения (unit), mock-интеграция, тесты живого стенда и ClickHouse; нагрузочный харнесс запускается отдельно |
 | Надёжность | соединение на кластер, retry/backoff, повтор инициализации схемы после сбоя ClickHouse, ограниченные очереди и счётчик потерь — см. [docs/SECURITY.md](docs/SECURITY.md) |
 | Ограничения | без TLS/SASL (изолированный контур); часть методов Java API не портирована; экспорт метрик best effort, без устойчивой очереди; формат R8 — только POSIX-время |
 
@@ -27,7 +27,7 @@
 | Проект | Назначение |
 |---|---|
 | `src/OneSTools.Ras.Client` | библиотека-клиент: транспорт SWP (`Transport/`), 17 wire-кодеков (`Wire/`), протокольные и API-сообщения (`Protocol/`, `Messages/`), модели (`Models/`) |
-| `src/OneSTools.Ras.Exporter.Core` | коллекторы метрик, конвейер батчинга (`Channels` + ретраи + гейт хранилища), хранилище ClickHouse |
+| `src/OneSTools.Ras.Exporter.Core` | 6 коллекторов метрик (сессии, процессы, соединения, блокировки, сводка кластера, список инфобаз), конвейер батчинга (`Channels` + ретраи + гейт хранилища), хранилище ClickHouse |
 | `src/OneSTools.Ras.Exporter` | worker-служба: конфигурация, диагностика здоровья, graceful shutdown |
 | `src/OneSTools.Ras.MockServer` | эмулятор RAS для тестов (protocol-fidelity: имя/версии сервиса, UnsupportedService, Rights-гейт) |
 | `src/OneSTools.Ras.LoadSim` | нагрузочный/хаос-харнесс (stage1/ramp/churn/negotiation/chaos, JSON-отчёты) |
@@ -97,7 +97,7 @@ user-secrets(Development) < env < args). В devcontainer `ClickHouse__Connection
     "Servers": [{
       "Name": "1c-test-server", "Host": "...", "Port": 1545,
       "AgentAuth": { "User": "", "Password": "" },
-      "PollIntervals": { "SessionsSeconds": 5, "ProcessesSeconds": 5, "ConnectionsSeconds": 10, "LocksSeconds": 5, "ClustersSeconds": 300 },
+      "PollIntervals": { "SessionsSeconds": 5, "ProcessesSeconds": 5, "ConnectionsSeconds": 10, "LocksSeconds": 5, "ClustersSeconds": 300, "InfoBasesSeconds": 300 },
       "Clusters": [{ "ClusterId": "...", "ClusterName": "MainCluster", "User": "", "Password": "", "Enabled": true }]
     }]
   }
@@ -115,8 +115,8 @@ user-secrets(Development) < env < args). В devcontainer `ClickHouse__Connection
 ### Архитектура потока данных
 
 ```
-RAS (SWP:1545) ──1 conn/кластер──> RasAdminClient ──> 5 коллекторов (таймеры)
-        пауза опросов ◄── StorageHealthGate ◄── сбой записи ◄── BatchProcessor×5 ──> ClickHouse (HTTP bulk)
+RAS (SWP:1545) ──1 conn/кластер──> RasAdminClient ──> 6 коллекторов (таймеры)
+        пауза опросов ◄── StorageHealthGate ◄── сбой записи ◄── BatchProcessor×6 ──> ClickHouse (HTTP bulk)
 ```
 
 Каждая пара (сервер, кластер) — отдельное SWP-соединение с независимым reconnect и
@@ -155,8 +155,8 @@ dotnet run --project src/OneSTools.Ras.LoadSim -- --mode chaos --duration 60
 ## Релиз и развёртывание
 
 ```bash
-bash tools/build-release.sh --version 0.1.1 --tag
-# → artifacts/v0.1.1/{archives,nuget,RELEASE_NOTES.md,SHA256SUMS.txt}
+bash tools/build-release.sh --version 0.2.0 --tag
+# → artifacts/v0.2.0/{archives,nuget,RELEASE_NOTES.md,SHA256SUMS.txt}
 ```
 
 Скрипт прогоняет гейты (`restore --locked-mode`, `build` 0 warnings, тесты, аудит

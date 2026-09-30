@@ -40,8 +40,8 @@
 ## 2. Сборка комплекта
 
 ```bash
-bash tools/build-release.sh --version 0.1.1 --tag
-# артефакты: artifacts/v0.1.1/{archives,nuget,RELEASE_NOTES.md,SHA256SUMS.txt}
+bash tools/build-release.sh --version 0.2.0 --tag
+# артефакты: artifacts/v0.2.0/{archives,nuget,RELEASE_NOTES.md,SHA256SUMS.txt}
 ```
 
 Гейты внутри скрипта: `restore --locked-mode`, `build` (0 warnings), тесты, аудит
@@ -78,8 +78,9 @@ cp bin/appsettings.production.example.json bin/appsettings.json
 | `RasExporter__Servers__<i>__AgentAuth__User` / `__Password` | администратор агента (пустые = анонимный вход, если авторизация не включена) |
 | `RasExporter__Servers__<i>__Clusters__0__ClusterName` | конкретный кластер; **не задавайте пустое значение** — переменная создаст элемент списка и валидация упадёт; отсутствие `Clusters` = автообнаружение |
 | `RasExporter__Servers__<i>__Clusters__0__User` / `__Password` | администратор кластера |
-| `RasExporter__Servers__<i>__PollIntervals__SessionsSeconds` и т.п. | частоты опроса групп метрик (1..86400 c) |
+| `RasExporter__Servers__<i>__PollIntervals__SessionsSeconds` и т.п. | частоты опроса групп метрик (1..86400 c): `SessionsSeconds`, `ProcessesSeconds`, `ConnectionsSeconds`, `LocksSeconds`, `ClustersSeconds` (сводка), `InfoBasesSeconds` (список инфобаз, по умолчанию 300) |
 | `ClickHouse__DatabaseTemplate` | имя БД на кластер; для уникальности добавляйте `{ClusterId}` |
+| `ClickHouse__AutoCreateTables` | при `true` таблица `infobases` создаётся сама при старте сбора |
 | `Logging__LogLevel__OneSTools.Ras` | `Information` в бою; `Debug` включает wire-трассировку кадров — только для расследований |
 | `Logging__Console__FormatterOptions__onestools__TimestampFormat` | формат времени в строках журнала (по умолчанию `dd.MM.yyyy HH:mm:ss`) |
 | `Logging__Console__FormatterOptions__onestools__UseUtcTimestamp` | `true` — UTC вместо локального времени сервера |
@@ -105,9 +106,9 @@ Windows ACL на `bin\appsettings.local.json`).
 ```bash
 sudo useradd --system --home-dir /opt/onestools/ras-exporter --shell /usr/sbin/nologin rasexporter
 sudo mkdir -p /opt/onestools/ras-exporter/releases
-sudo tar -xzf OneSTools.Ras.Exporter-0.1.1-linux-x64.tar.gz -C /tmp
-sudo mv /tmp/OneSTools.Ras.Exporter-0.1.1-linux-x64 /opt/onestools/ras-exporter/releases/0.1.1
-REL=/opt/onestools/ras-exporter/releases/0.1.1
+sudo tar -xzf OneSTools.Ras.Exporter-0.2.0-linux-x64.tar.gz -C /tmp
+sudo mv /tmp/OneSTools.Ras.Exporter-0.2.0-linux-x64 /opt/onestools/ras-exporter/releases/0.2.0
+REL=/opt/onestools/ras-exporter/releases/0.2.0
 sudo ln -sfn "$REL" /opt/onestools/ras-exporter/current
 ```
 
@@ -151,6 +152,8 @@ journalctl -u onestools-ras-exporter --since -10m | grep -E '\[(err|warn)\]|Heal
 clickhouse-client --query "SHOW DATABASES LIKE 'ras_cluster_%'"
 clickhouse-client -d ras_cluster_maincluster --query \
   "SELECT _time, cluster_name FROM sessions ORDER BY _time DESC LIMIT 3"
+clickhouse-client -d ras_cluster_maincluster --query \
+  "SELECT _time, name, dbms, db_server, sessions_deny FROM infobases ORDER BY _time DESC LIMIT 5"
 ```
 
 Замечания по Linux:
@@ -255,23 +258,24 @@ HTTP-эндпоинта `/health` нет — мониторинг строитс
 Linux:
 
 ```bash
-sudo tar -xzf OneSTools.Ras.Exporter-0.1.1-linux-x64.tar.gz -C /tmp
-sudo mv /tmp/OneSTools.Ras.Exporter-0.1.1-linux-x64 /opt/onestools/ras-exporter/releases/0.1.1
-sudo cp /opt/onestools/ras-exporter/releases/0.1.0/bin/appsettings.json /opt/onestools/ras-exporter/releases/0.1.1/bin/
-sudo ln -sfn /opt/onestools/ras-exporter/releases/0.1.1 /opt/onestools/ras-exporter/current
+sudo tar -xzf OneSTools.Ras.Exporter-0.2.0-linux-x64.tar.gz -C /tmp
+sudo mv /tmp/OneSTools.Ras.Exporter-0.2.0-linux-x64 /opt/onestools/ras-exporter/releases/0.2.0
+sudo cp /opt/onestools/ras-exporter/releases/0.1.1/bin/appsettings.json /opt/onestools/ras-exporter/releases/0.2.0/bin/
+sudo ln -sfn /opt/onestools/ras-exporter/releases/0.2.0 /opt/onestools/ras-exporter/current
 sudo systemctl restart onestools-ras-exporter
-# откат: ln -sfn .../releases/0.1.0 current && systemctl restart
+# откат: ln -sfn .../releases/0.1.1 current && systemctl restart
 ```
 
 Windows: `Stop-ScheduledTask`, замена `bin\` вместе с `bin\appsettings*.json` (шаблоны/скрипты
 обновляются вместе с архивом), `Start-ScheduledTask`. ClickHouse-схема совместима между
-версиями 0.x (DDL идемпотентен, `CREATE TABLE IF NOT EXISTS`); откат старым бинарником
-безопасен.
+версиями 0.x (DDL идемпотентен, `CREATE TABLE IF NOT EXISTS`): новая `infobases` появится сама
+при `AutoCreateTables=true`, откат старым бинарником безопасен (таблица останется, просто
+пустая).
 
 ## 8. Библиотека из локального фида
 
 ```bash
-dotnet nuget add source /path/to/artifacts/v0.1.1/nuget --name onestools-local
+dotnet nuget add source /path/to/artifacts/v0.2.0/nuget --name onestools-local
 dotnet add package OneSTools.Ras.Client
 ```
 
@@ -285,6 +289,9 @@ dotnet add package OneSTools.Ras.Client
 - Поля `SessionInfo` разных версий платформы проверялись на 8.3.25.1520; при росте версии
   возможны расхождения в состав/порядке полей.
 - Время в формате R8 — POSIX-время; метки `_time` — UTC.
+- Таблица `infobases` содержит конфигурацию информационных баз (имена, описания, СУБД-сервер,
+  пользователи БД, флаги запретов, окна запрета работы, коды разрешений). Пароли
+  (`db_pwd`, строка подключения внешнего менеджера сессий) **не записываются**.
 - Метрики содержат имена пользователей 1С и адреса хостов клиентов (условно ПДн) —
   учитывайте при передаче журнала и при настройке доступа к ClickHouse.
 - Проверка ИБ: чек-лист [SECURITY.md §5](SECURITY.md) перед вводом в эксплуатацию.

@@ -84,6 +84,11 @@
   - `bash tools/build-release.sh --version V [--tag]` — релизный комплект: гейты → pack библиотек
     → self-contained single-file publish (`linux-x64`, `win-x64`) → `artifacts/vV/` (gitignored)
   - Тесты живого стенда: `RAC_TEST_RAS_HOST`/`RAC_TEST_RAS_PORT` (по умолчанию `1c-test-server:1545`)
+- Образ `mock-ras` собирается из `src/` при сборке контейнера: после изменений wire-моделей/
+  коллекторов его надо пересобрать (`docker compose build mock-ras && docker compose up -d mock-ras`),
+  иначе контейнер отдаёт старые кадры и новый клиент падает на парсинге
+  (`list size exceeds remaining data`). Интеграционные тесты поднимают mock in-process и
+  от устаревшего образа не зависят.
 - Подмена mock-ras реальным стендом: скопировать `.devcontainer/docker-compose.override.example.yml`
   в `docker-compose.override.yml`, указать адрес стенда, сменить `Host` в `appsettings.json`.
 
@@ -101,7 +106,7 @@ OneSTools.Ras.sln
 │   │   ├── Messages/                  API-сообщения (запросы/ответы)
 │   │   └── Models/                    модели данных (ClusterInfo, SessionInfo, ...)
 │   ├── OneSTools.Ras.Exporter.Core/   ядро сбора/экспорта
-│   │   ├── Collectors/                периодический опрос по типам метрик
+│   │   ├── Collectors/                периодический опрос по типам метрик (6 коллекторов)
 │   │   ├── Pipeline/                  TPL Dataflow / Channels батчинг
 │   │   ├── Storage/                   абстракция IMetricsStorage
 │   │   └── ClickHouse/                ClickHouseStorage (DDL, Bulk Insert)
@@ -136,7 +141,9 @@ OneSTools.Ras.sln
 - **База по шаблону кластера**: по умолчанию `ras_cluster_{ClusterName}`
   (`ClickHouseSettings.DatabaseTemplate`); при необходимости строгой уникальности задавать
   шаблон с `{ClusterId}` (нормализация разных имён может дать совпадение).
-- **Своя таблица на сущность**: `sessions`, `processes`, `connections`, `locks`, `cluster_summary`.
+- **Своя таблица на сущность**: `sessions`, `processes`, `connections`, `locks`, `cluster_summary`,
+  `infobases` (снапшоты `getInfoBases`; учётные данные СУБД — `db_pwd` и строку подключения
+  внешнего менеджера сессий — в хранилище не записываем).
 - **Движок**: `ReplacingMergeTree`/`MergeTree`, партиционирование `PARTITION BY toYYYYMM(_time)`,
   `ORDER BY (_time, …)`; кодеки сжатия колонок — `ZSTD`, `DoubleDelta` (для времени).
 - **Версионирование состава полей**: разные версии платформы 1С (8.3.x/8.4) дают разный набор
