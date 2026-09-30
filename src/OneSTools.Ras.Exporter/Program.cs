@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 using OneSTools.Ras.Exporter.Configuration;
 using OneSTools.Ras.Exporter.Core.ClickHouse;
@@ -11,6 +12,7 @@ using OneSTools.Ras.Exporter.Core.Pipeline;
 using OneSTools.Ras.Exporter.Core.Storage;
 using OneSTools.Ras.Exporter.Services;
 using OneSTools.Ras.Exporter.Services.Health;
+using OneSTools.Ras.Exporter.Services.Logging;
 
 // Content root = каталог исполняемого файла: appsettings.json всегда подхватывается
 // рядом с бинарником (publish) и из выходного каталога (dotnet run из любой директории).
@@ -106,5 +108,34 @@ builder.Services.AddSingleton<IHealthCheckPublisher, LoggingHealthCheckPublisher
 
 builder.Services.AddHostedService<RasExportService>();
 
+// Консольный формат «dd.MM.yyyy HH:mm:ss [уровень] [категория] текст» (файл журнала на Windows
+// и journalctl на Linux). Явный Logging:Console:FormatterName в конфигурации остаётся старшим.
+builder.Logging.AddConsoleFormatter<TimestampedConsoleFormatter, ConsoleFormatterOptions>();
+builder.Logging.Services.Configure<ConsoleLoggerOptions>(consoleOptions =>
+{
+    if (string.IsNullOrEmpty(consoleOptions.FormatterName))
+        consoleOptions.FormatterName = TimestampedConsoleFormatter.FormatterName;
+});
+
+var diagnostics = new StartupDiagnostics(builder.Configuration);
 var host = builder.Build();
-await host.RunAsync();
+
+diagnostics.LogConfigurationSources(
+    host.Services.GetRequiredService<ILoggerFactory>().CreateLogger(StartupDiagnostics.Category));
+
+try
+{
+    await host.RunAsync();
+}
+catch (Exception exception)
+{
+    OptionsValidationException? validation = exception as OptionsValidationException
+        ?? (exception as AggregateException)?.Flatten().InnerExceptions.OfType<OptionsValidationException>().FirstOrDefault();
+    if (validation is null)
+        throw;
+
+    diagnostics.ReportValidationFailure(validation);
+    return 1;
+}
+
+return 0;

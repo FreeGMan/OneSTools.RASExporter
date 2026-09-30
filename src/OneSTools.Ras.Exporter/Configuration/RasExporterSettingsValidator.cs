@@ -9,7 +9,8 @@ public sealed class RasExporterSettingsValidator : IValidateOptions<RasExporterS
         var errors = new List<string>();
         var servers = options.Servers ?? [];
         if (servers.Count == 0)
-            errors.Add("RasExporter:Servers должен содержать хотя бы один сервер");
+            errors.Add("RasExporter:Servers пуст: добавьте сервер в appsettings.json рядом с бинарником " +
+                "или задайте RasExporter__Servers__0__Name и RasExporter__Servers__0__Host");
 
         for (int i = 0; i < servers.Count; i++)
         {
@@ -22,7 +23,7 @@ public sealed class RasExporterSettingsValidator : IValidateOptions<RasExporterS
             }
 
             if (string.IsNullOrWhiteSpace(server.Name) || string.IsNullOrWhiteSpace(server.Host))
-                errors.Add($"{prefix}: Name и Host обязательны");
+                errors.Add($"{prefix}: Name и Host обязательны (оба непустые)");
             if (server.Port is < 1 or > 65535)
                 errors.Add($"{prefix}: Port должен быть в пределах 1..65535");
             if (server.ConnectTimeoutMilliseconds is < 100 or > 600_000)
@@ -50,7 +51,9 @@ public sealed class RasExporterSettingsValidator : IValidateOptions<RasExporterS
             {
                 var cluster = server.Clusters[j];
                 if (cluster is null || (cluster.Enabled && cluster.ClusterId.GetValueOrDefault() == Guid.Empty && string.IsNullOrWhiteSpace(cluster.ClusterName)))
-                    errors.Add($"{prefix}:Clusters:{j}: требуется ClusterId или ClusterName");
+                    errors.Add($"{prefix}:Clusters:{j}: требуется ClusterId или ClusterName; " +
+                        "пустое значение из env (…Clusters__" + j + "__ClusterName=) создаёт элемент списка — " +
+                        "не задавайте переменную, если нужно автообнаружение");
             }
         }
 

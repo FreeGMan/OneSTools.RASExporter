@@ -8,7 +8,7 @@ public sealed class ClickHouseSettingsValidator : IValidateOptions<ClickHouseSet
     {
         var errors = new List<string>();
         if (string.IsNullOrWhiteSpace(options.ConnectionString))
-            errors.Add("ClickHouse:ConnectionString обязателен");
+            errors.Add("ClickHouse:ConnectionString обязателен (appsettings.json рядом с бинарником или ClickHouse__ConnectionString)");
         if (string.IsNullOrWhiteSpace(options.DatabaseTemplate))
             errors.Add("ClickHouse:DatabaseTemplate обязателен");
         if (options.BatchSize is < 1 or > 100_000)
