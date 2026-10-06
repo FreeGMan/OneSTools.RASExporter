@@ -11,7 +11,8 @@ namespace OneSTools.Ras.IntegrationTests.RealRas;
 
 /// <summary>
 /// Тесты кластерного API против «почти реального» RAS: контейнер 1c-test-server,
-/// RAS подключен к рабочему ragent, на сервере нет ни одной информационной базы.
+/// RAS подключен к рабочему ragent, на сервере добавлены информационные базы
+/// test_db1/test_db2/test_db3 (СУБД — postgres того же dev-контура).
 /// Кластер без настроенной аутентификации (SecurityLevel=0), но RAS всё равно
 /// требует явный вызов authenticateCluster (пустыми учётками) перед методами
 /// просмотра сессий/процессов/серверов — это и проверяется.
@@ -62,7 +63,7 @@ public sealed class RealClusterRasTests
     }
 
     [SkippableFact]
-    public async Task GetInfoBases_Returns_Empty_List_On_Clean_Server()
+    public async Task GetInfoBases_Decodes_Every_Item_Matching_Short_List()
     {
         Skip.IfNot(RealRasSupport.ServerReachable(), $"RAS недоступен на {RealRasSupport.Host}:{RealRasSupport.Port}");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -71,15 +72,53 @@ public sealed class RealClusterRasTests
         await using (endpoint)
         {
             var infobases = await endpoint.ExecuteAsync(new GetInfoBasesRequest(clusterId), ver, cts.Token);
-            Assert.Empty(infobases.InfoBases);
-
             var shortList = await endpoint.ExecuteAsync(new GetInfoBasesShortRequest(clusterId), ver, cts.Token);
-            Assert.Empty(shortList.InfoBases);
+
+            // Десинхронизация хвостовыми полями ломает либо парсинг (исключение), либо состав/имена списка.
+            Assert.Equal(shortList.InfoBases.Count, infobases.InfoBases.Count);
+            Assert.Equal(
+                shortList.InfoBases.Select(s => s.Uuid).OrderBy(x => x),
+                infobases.InfoBases.Select(i => i.Uuid).OrderBy(x => x));
+            foreach (var ib in infobases.InfoBases)
+            {
+                Assert.NotEqual(Guid.Empty, ib.Uuid);
+                Assert.False(string.IsNullOrEmpty(ib.Name));
+            }
         }
     }
 
     [SkippableFact]
-    public async Task GetSessions_Returns_Empty_List_No_Infobases()
+    public async Task GetInfoBases_Decodes_V14_Tail_Fields()
+    {
+        Skip.IfNot(RealRasSupport.ServerReachable(), $"RAS недоступен на {RealRasSupport.Host}:{RealRasSupport.Port}");
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var (connection, endpoint, clusterId, ver) = await OpenAuthenticatedClusterAsync(cts);
+        await using (connection)
+        await using (endpoint)
+        {
+            Skip.If(ver < 14, $"Стенд согласовал v{ver}, хвостовые поля v14 не проверяются");
+
+            var infobases = await endpoint.ExecuteAsync(new GetInfoBasesRequest(clusterId), ver, cts.Token);
+
+            // test_db3 на стенде настроен rac'ом: speech-to-text=on, delay=42, min=1000, max=60000
+            var db3 = infobases.InfoBases.FirstOrDefault(i => i.Name == "test_db3");
+            Skip.If(db3 is null, "На стенде нет test_db3");
+            Assert.True(db3.DisableLocalSpeechToText);
+            Assert.Equal(42, db3.ConfigurationUnloadDelayByWorkingProcessWithoutActiveUsers);
+            Assert.Equal(1000, db3.MinimumScheduledJobsStartPeriodWithoutActiveUsers);
+            Assert.Equal(60000, db3.MaximumScheduledJobsStartShiftWithoutActiveUsers);
+
+            var db1 = infobases.InfoBases.First(i => i.Name == "test_db1");
+            Assert.False(db1.DisableLocalSpeechToText);
+            Assert.Equal(0, db1.ConfigurationUnloadDelayByWorkingProcessWithoutActiveUsers);
+            Assert.Equal("PostgreSQL", db1.Dbms);
+            Assert.Equal("postgres", db1.DbServer);
+            Assert.Equal("ru_RU", db1.Locale);
+        }
+    }
+
+    [SkippableFact]
+    public async Task GetSessions_Returns_Empty_List_No_Active_Sessions()
     {
         Skip.IfNot(RealRasSupport.ServerReachable(), $"RAS недоступен на {RealRasSupport.Host}:{RealRasSupport.Port}");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));

@@ -102,7 +102,11 @@ public sealed class ClientSession
         Name = "mock_db",
         Descr = "Mock Infobase",
         DbServer = "mock-server",
-        SecurityLevel = 1
+        SecurityLevel = 1,
+        DisableLocalSpeechToText = true,
+        ConfigurationUnloadDelayByWorkingProcessWithoutActiveUsers = 42,
+        MinimumScheduledJobsStartPeriodWithoutActiveUsers = 1000,
+        MaximumScheduledJobsStartShiftWithoutActiveUsers = 60000
     };
 
     private static readonly ServerInfo MockServer = new()

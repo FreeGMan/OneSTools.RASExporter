@@ -19,7 +19,7 @@ namespace OneSTools.Ras.IntegrationTests.RealRas;
 internal static class RealRasSupport
 {
     public const string AdminServiceName = "v8.service.Admin.Cluster";
-    public static readonly string[] CandidateVersions = { "12.0", "11.0", "10.0", "9.0", "8.0", "7.0", "6.0", "5.0", "4.0", "3.0" };
+    public static readonly string[] CandidateVersions = { "14.0", "13.0", "12.0", "11.0", "10.0", "9.0", "8.0", "7.0", "6.0", "5.0", "4.0", "3.0" };
 
     public static string Host { get; } = Environment.GetEnvironmentVariable("RAC_TEST_RAS_HOST") ?? "1c-test-server";
     public static int Port { get; } = int.Parse(Environment.GetEnvironmentVariable("RAC_TEST_RAS_PORT") ?? "1545");
