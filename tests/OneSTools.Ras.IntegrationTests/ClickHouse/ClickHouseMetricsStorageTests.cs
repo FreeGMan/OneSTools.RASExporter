@@ -177,7 +177,11 @@ public sealed class ClickHouseMetricsStorageTests
                 DeniedMessage = "Обновление конфигурации",
                 DeniedParameter = "",
                 PermissionCode = "PC-1",
-                DateOffset = 180
+                DateOffset = 180,
+                DisableLocalSpeechToText = true,
+                ConfigurationUnloadDelayByWorkingProcessWithoutActiveUsers = 42,
+                MinimumScheduledJobsStartPeriodWithoutActiveUsers = 1000,
+                MaximumScheduledJobsStartShiftWithoutActiveUsers = 60000
             });
 
         await storage.WriteInfobasesBatchAsync(TestDatabase, new[] { infobaseItem }, cts.Token);
@@ -205,8 +209,10 @@ public sealed class ClickHouseMetricsStorageTests
         {
             await verify.OpenAsync(cts.Token);
             using var cmd = verify.CreateCommand();
-            cmd.CommandText = $"SELECT name, db_user, denied_from, denied_to, reserve_working_processes " +
-                $"FROM `{TestDatabase}`.`{ClickHouseTableDefinitions.InfobasesTableName}` LIMIT 1";
+            cmd.CommandText = $"SELECT name, db_user, denied_from, denied_to, reserve_working_processes, " +
+                $"disable_local_speech_to_text, configuration_unload_delay_by_working_process_without_active_users, " +
+                $"minimum_scheduled_jobs_start_period_without_active_users, maximum_scheduled_jobs_start_shift_without_active_users " +
+                $"FROM `{TestDatabase}`.`{ClickHouseTableDefinitions.InfobasesTableName}` ORDER BY _time DESC LIMIT 1";
             using var reader = await cmd.ExecuteReaderAsync(cts.Token);
             Assert.True(await reader.ReadAsync(cts.Token));
             Assert.Equal("test_infobase", reader.GetString(0));
@@ -214,6 +220,10 @@ public sealed class ClickHouseMetricsStorageTests
             Assert.False(reader.IsDBNull(2));
             Assert.False(reader.IsDBNull(3));
             Assert.Equal((byte)1, reader.GetByte(4));
+            Assert.Equal((byte)1, reader.GetByte(5));
+            Assert.Equal(42, reader.GetInt32(6));
+            Assert.Equal(1000, reader.GetInt32(7));
+            Assert.Equal(60000, reader.GetInt32(8));
         }
     }
 }

@@ -117,6 +117,13 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
                 cmd.CommandText = ddl;
                 await cmd.ExecuteNonQueryAsync(cancellationToken);
             }
+
+            foreach (var migration in ClickHouseTableDefinitions.InfobasesAddV14ColumnsMigrations(databaseName))
+            {
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = migration;
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
         }
     }
 
@@ -443,7 +450,11 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
             "dbms", "db_server", "db_name", "db_user", "security_level", "license_distribution",
             "sessions_deny", "scheduled_jobs_deny", "external_session_manager_required",
             "security_profile_name", "safe_mode_security_profile_name", "reserve_working_processes",
-            "denied_from", "denied_to", "denied_message", "denied_parameter", "permission_code"
+            "denied_from", "denied_to", "denied_message", "denied_parameter", "permission_code",
+            "disable_local_speech_to_text",
+            "configuration_unload_delay_by_working_process_without_active_users",
+            "minimum_scheduled_jobs_start_period_without_active_users",
+            "maximum_scheduled_jobs_start_shift_without_active_users"
         };
 
         var rows = new List<object?[]>(items.Count);
@@ -476,7 +487,11 @@ public sealed class ClickHouseMetricsStorage : IMetricsStorage
                 ib.DeniedTo == default ? null : ib.DeniedTo,
                 ib.DeniedMessage,
                 ib.DeniedParameter,
-                ib.PermissionCode
+                ib.PermissionCode,
+                (byte)(ib.DisableLocalSpeechToText ? 1 : 0),
+                ib.ConfigurationUnloadDelayByWorkingProcessWithoutActiveUsers,
+                ib.MinimumScheduledJobsStartPeriodWithoutActiveUsers,
+                ib.MaximumScheduledJobsStartShiftWithoutActiveUsers
             });
         }
 

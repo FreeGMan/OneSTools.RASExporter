@@ -113,6 +113,10 @@ public sealed class InfobaseCollectorTests : IAsyncLifetime
             Assert.Equal("Mock Infobase", item.Infobase.Descr);
             Assert.Equal("mock-server", item.Infobase.DbServer);
             Assert.Equal(1, item.Infobase.SecurityLevel);
+            Assert.True(item.Infobase.DisableLocalSpeechToText);
+            Assert.Equal(42, item.Infobase.ConfigurationUnloadDelayByWorkingProcessWithoutActiveUsers);
+            Assert.Equal(1000, item.Infobase.MinimumScheduledJobsStartPeriodWithoutActiveUsers);
+            Assert.Equal(60000, item.Infobase.MaximumScheduledJobsStartShiftWithoutActiveUsers);
             Assert.Equal(DateTimeKind.Utc, item.Timestamp.Kind);
         }
     }

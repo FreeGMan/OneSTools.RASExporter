@@ -200,9 +200,25 @@ public static class ClickHouseTableDefinitions
             `denied_to` Nullable(DateTime64(3)),
             `denied_message` String,
             `denied_parameter` String,
-            `permission_code` String
+            `permission_code` String,
+            `disable_local_speech_to_text` UInt8,
+            `configuration_unload_delay_by_working_process_without_active_users` Int32,
+            `minimum_scheduled_jobs_start_period_without_active_users` Int32,
+            `maximum_scheduled_jobs_start_shift_without_active_users` Int32
         )
         ENGINE = MergeTree()
         PARTITION BY toYYYYMM(_time)
         ORDER BY (_time, cluster_id, infobase_id);";
+
+    public static string[] InfobasesAddV14ColumnsMigrations(string databaseName) =>
+    [
+        $@"ALTER TABLE `{databaseName}`.`{InfobasesTableName}`
+        ADD COLUMN IF NOT EXISTS `disable_local_speech_to_text` UInt8",
+        $@"ALTER TABLE `{databaseName}`.`{InfobasesTableName}`
+        ADD COLUMN IF NOT EXISTS `configuration_unload_delay_by_working_process_without_active_users` Int32",
+        $@"ALTER TABLE `{databaseName}`.`{InfobasesTableName}`
+        ADD COLUMN IF NOT EXISTS `minimum_scheduled_jobs_start_period_without_active_users` Int32",
+        $@"ALTER TABLE `{databaseName}`.`{InfobasesTableName}`
+        ADD COLUMN IF NOT EXISTS `maximum_scheduled_jobs_start_shift_without_active_users` Int32"
+    ];
 }

@@ -270,7 +270,11 @@ Windows: `Stop-ScheduledTask`, замена `bin\` вместе с `bin\appsetti
 обновляются вместе с архивом), `Start-ScheduledTask`. ClickHouse-схема совместима между
 версиями 0.x (DDL идемпотентен, `CREATE TABLE IF NOT EXISTS`): новая `infobases` появится сама
 при `AutoCreateTables=true`, откат старым бинарником безопасен (таблица останется, просто
-пустая).
+пустая). С 0.3.0 в `infobases` добавлены 4 колонки v13/v14-полей ИБ
+(`disable_local_speech_to_text`, `configuration_unload_delay_by_working_process_without_active_users`,
+`minimum_scheduled_jobs_start_period_without_active_users`,
+`maximum_scheduled_jobs_start_shift_without_active_users`) — при старте выполняются
+идемпотентные `ALTER TABLE … ADD COLUMN IF NOT EXISTS`, данных это не касается.
 
 ## 8. Библиотека из локального фида
 
