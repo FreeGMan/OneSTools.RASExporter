@@ -270,6 +270,19 @@ void shutdown();
 | `securityProfileName` | `String` | `SecurityProfileName` | `string` |
 | `safeModeSecurityProfileName` | `String` | `SafeModeSecurityProfileName` | `string` |
 | `reserveWorkingProcesses` | `boolean` | `ReserveWorkingProcesses` | `bool` (v≥9) |
+| `disableLocalSpeechToText` | `boolean` | — (нет в protos) | `bool` (v≥13) |
+| `configurationUnloadDelayByWorkingProcessWithoutActiveUsers` | `int` | — (нет в protos) | `int32` (v≥14) |
+| `minimumScheduledJobsStartPeriodWithoutActiveUsers` | `int` | — (нет в protos) | `int32` (v≥14) |
+| `maximumScheduledJobsStartShiftWithoutActiveUsers` | `int` | — (нет в protos) | `int32` (v≥14) |
+
+> ⚠ Поля `disableLocalSpeechToText` и трёх «without active users» параметров нет в контрактах
+> v8platform/protos (репозиторий отстаёт от платформы). Порядок (orders 25–28) и версионные гейты
+> (v≥13 bool; v≥14 три int32 big-endian) подтверждены живым стендом RAS 8.3.25.1520:
+> замеры длин ответов `getInfoBaseInfo`/`getInfoBases` на версиях сервиса 3.0–14.0
+> (хвост 0 байт при v≤12, 1 байт при v=13, 13 байт при v=14) и сверка значений с выводом
+> `rac infobase info/update`. Имена — по опциям `rac infobase update`.
+>
+> Факт стенда: `dbPwd` сервер всегда отдаёт как один символ U+FFFD (EF BF BD) — пароли по SWP не раскрываются.
 
 ### 3.3 IInfoBaseInfoShort / InfoBaseInfoShort
 
