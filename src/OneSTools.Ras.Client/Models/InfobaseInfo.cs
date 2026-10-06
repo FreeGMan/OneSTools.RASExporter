@@ -3,7 +3,12 @@ using OneSTools.Ras.Client.Wire;
 
 namespace OneSTools.Ras.Client.Models;
 
-/// <summary>Модель данных «InfobaseInfo» (docs/API_REFERENCE.md §3; версионированные поля — по github.com/v8platform/protos).</summary>
+/// <summary>
+/// Модель данных «InfobaseInfo» (docs/API_REFERENCE.md §3).
+/// Порядок полей — позиционный по v8platform/protos (до order 24); хвостовые версионные поля
+/// (order 25–28) подтверждены живым стендом RAS 8.3.25.1520 (замер длин ответов v3.0–14.0):
+/// ReserveWorkingProcesses v≥9, DisableLocalSpeechToText v≥13, три целых v≥14.
+/// </summary>
 public sealed record InfobaseInfo
 {
     public Guid Uuid { get; init; }
@@ -30,6 +35,10 @@ public sealed record InfobaseInfo
     public string SecurityProfileName { get; init; } = string.Empty;
     public string SafeModeSecurityProfileName { get; init; } = string.Empty;
     public bool ReserveWorkingProcesses { get; init; }
+    public bool DisableLocalSpeechToText { get; init; }
+    public int ConfigurationUnloadDelayByWorkingProcessWithoutActiveUsers { get; init; }
+    public int MinimumScheduledJobsStartPeriodWithoutActiveUsers { get; init; }
+    public int MaximumScheduledJobsStartShiftWithoutActiveUsers { get; init; }
 
     public void Serialize(ref RasWriter writer, int version = 0)
     {
@@ -59,6 +68,16 @@ public sealed record InfobaseInfo
         if (version >= 9)
         {
             writer.WriteBool(ReserveWorkingProcesses);
+        }
+        if (version >= 13)
+        {
+            writer.WriteBool(DisableLocalSpeechToText);
+        }
+        if (version >= 14)
+        {
+            writer.WriteInt32(ConfigurationUnloadDelayByWorkingProcessWithoutActiveUsers);
+            writer.WriteInt32(MinimumScheduledJobsStartPeriodWithoutActiveUsers);
+            writer.WriteInt32(MaximumScheduledJobsStartShiftWithoutActiveUsers);
         }
     }
 
@@ -91,9 +110,22 @@ public sealed record InfobaseInfo
             SafeModeSecurityProfileName = reader.ReadString() ?? string.Empty,
         };
 
-        if (version >= 9 && reader.Remaining > 0)
+        if (version >= 9)
         {
             info = info with { ReserveWorkingProcesses = reader.ReadBool() };
+        }
+        if (version >= 13)
+        {
+            info = info with { DisableLocalSpeechToText = reader.ReadBool() };
+        }
+        if (version >= 14)
+        {
+            info = info with
+            {
+                ConfigurationUnloadDelayByWorkingProcessWithoutActiveUsers = reader.ReadInt32(),
+                MinimumScheduledJobsStartPeriodWithoutActiveUsers = reader.ReadInt32(),
+                MaximumScheduledJobsStartShiftWithoutActiveUsers = reader.ReadInt32(),
+            };
         }
 
         return info;
