@@ -1,6 +1,6 @@
-# !!!НАВАЙБКОЖЕНО!!!
-
 # OneSTools.Ras
+
+## ⚠️ НАВАЙБКОЖЕНО ⚠️
 
 Независимый высокопроизводительный **C#-клиент сервера администрирования 1С (RAS)** по
 бинарному протоколу SWP — без Java SDK и без обращения к утилите `rac` ([MIT](LICENSE)) — и служба периодического
@@ -15,7 +15,7 @@
 ## Статус
 
 | | |
-|---|---|
+| --- | --- |
 | Протокол | выведен из поведения обращения официальной Java-библиотеки с живому серверу **1С 8.3.25.1520** (стенд в изолированном контуре) |
 | API | 27 методов в публичном `RasAdminClient` из 84 методов Java API; `docs/GAP_ANALYSIS.md` оценивает наличие proto-контрактов, а не реализацию C#; negotiation версий сервиса `3.0…14.0` |
 | Тесты | 154: кодеки/сообщения (unit), mock-интеграция, тесты живого стенда и ClickHouse; нагрузочный харнесс запускается отдельно |
@@ -25,7 +25,7 @@
 ## Проекты
 
 | Проект | Назначение |
-|---|---|
+| --- | --- |
 | `src/OneSTools.Ras.Client` | библиотека-клиент: транспорт SWP (`Transport/`), 17 wire-кодеков (`Wire/`), протокольные и API-сообщения (`Protocol/`, `Messages/`), модели (`Models/`) |
 | `src/OneSTools.Ras.Exporter.Core` | 6 коллекторов метрик (сессии, процессы, соединения, блокировки, сводка кластера, список инфобаз), конвейер батчинга (`Channels` + ретраи + гейт хранилища), хранилище ClickHouse |
 | `src/OneSTools.Ras.Exporter` | worker-служба: конфигурация, диагностика здоровья, graceful shutdown |
@@ -37,7 +37,7 @@
 ## Документация
 
 | Документ | О чём |
-|---|---|
+| --- | --- |
 | [docs/TRANSPORT_SPEC.md](docs/TRANSPORT_SPEC.md) | транспорт SWP: magic/negotiate, фрейминг, handshake, эндпоинты, SASL/TLS-рамки, §7.2 — wire-имя и версии сервиса (подтверждено живым RAS) |
 | [docs/CODEC_SPEC.md](docs/CODEC_SPEC.md) | 17 бинарных кодеков wire-формата: алгоритмы, hex-примеры, C#-сигнатуры |
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | 84 метода `IAgentAdminConnection`, 25 моделей данных |
@@ -114,7 +114,7 @@ user-secrets(Development) < env < args). В devcontainer `ClickHouse__Connection
 
 ### Архитектура потока данных
 
-```
+```text
 RAS (SWP:1545) ──1 conn/кластер──> RasAdminClient ──> 6 коллекторов (таймеры)
         пауза опросов ◄── StorageHealthGate ◄── сбой записи ◄── BatchProcessor×6 ──> ClickHouse (HTTP bulk)
 ```
@@ -171,7 +171,7 @@ single-file (`linux-x64`, `win-x64`) — .NET Runtime на целевом сер
 
 ## Структура репозитория
 
-```
+```text
 src/                  # проекты решения (см. таблицу выше)
 tests/                # unit + integration
 docs/                 # спецификации и обзоры (см. таблицу документации)
